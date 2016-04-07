@@ -7,8 +7,8 @@
 %token NEW
 %token WHILE
 %token IF
-
 %token ELSE
+%token MAIN
 
 %token TINT
 %token TFLOAT
@@ -48,6 +48,9 @@
 %token INSTANCEOF
 %token EOF
 
+/*%left IPLUS IMINUS
+%left IMULTIPLY IDIVIDE*/
+
 %{ open AbstractSyntaxTree %}
 %start <AbstractSyntaxTree.program option> program
 
@@ -81,8 +84,11 @@ methodList
 |methodDeclaration  methodList {$1 :: $2}
 ;
 
+
 methodDeclaration
-:typeD ID OPARENT methodParameterList CPARENT LEFT_BRACE
+:typeD MAIN OPARENT methodParameterList CPARENT LEFT_BRACE
+expression RIGHT_BRACE {MainMethod($1,$4,$7)}
+|typeD ID OPARENT methodParameterList CPARENT LEFT_BRACE
 expression RIGHT_BRACE {Method($1,$2,$4,$7)}
 ;
 methodParameterList
@@ -100,19 +106,18 @@ methodParameter: typeD ID {($1,$2)}
 /*Add semicolon at the end of some expressions*/
 expression
 :INT       {Value(IntV($1))}
-|FLOAT    {Value(FloatV($1))}
-|BOOL     {Value(BoolV($1))}
+|FLOAT     {Value(FloatV($1))}
+|BOOL      {Value(BoolV($1))}
 |ID        {Variable($1)}
 |ID DOT ID {ObjectField($1,$3)}
 |ID EQUAL expression {VariableAssignment($1,$3)}
 |ID DOT ID EQUAL expression {ObjectFieldAssignment(($1,$3),$5)}
-|e1=expression SEMICOLON e2=expression{Sequence(e1,e2)}
+|e1=expression e2=expression{Sequence(e1,e2)}
 |IF OPARENT guard=ID CPARENT LEFT_BRACE thenExp=expression RIGHT_BRACE
   ELSE LEFT_BRACE elseExp=expression RIGHT_BRACE  {If(guard,thenExp,elseExp)}
-  
-|expression intOperator expression {IntOperation($1,$2,$3)}
-|expression floatOperator expression {FloatOperation($1,$2,$3)}
-|expression logicalOperator expression {LogicalOperation($1,$2,$3)}
+
+|exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1,op,exp2)}
+
 |NOT expression {Negation($2)}
 |NEW ID OPARENT argsList CPARENT {New($2,$4)}
 |ID DOT ID OPARENT argsList CPARENT {MethodCall($1,$3,$5)}
@@ -122,23 +127,23 @@ expression
 |ID INSTANCEOF typeD {InstanceOf($1,$3)}
 ;
 
-intOperator
-: IPLUS {IPlus}
-| IMINUS {IMinus}
-| IMULTIPLY {IMultiplication}
-| IDIVIDE {IDivision}
-;
-
-floatOperator
-: FPLUS {FPlus}
-| FMINUS {FMinus}
-| FMULTIPLY {FMultiplication}
-| FDIVIDE {FDivision}
-;
-
-logicalOperator
-: AND {And}
-| OR  {Or}
+binaryOperator
+: IPLUS         {IPlus}
+| IMINUS        {IMinus}
+| IMULTIPLY     {IMultiply}
+| IDIVIDE       {IDivide}
+| FPLUS         {FPlus}
+| FMINUS        {FMinus}
+| FMULTIPLY     {FMultiply}
+| FDIVIDE       {FDivide}
+| LESS          {Less}
+| LESS_EQUAL    {LessEqual}
+| EQ_EQUAL      {EqEqual}
+| GREATER_EQUAL {GreaterEqual}
+| GREATER       {Greater}
+| NOT_EQUAL     {NotEqual}
+| AND           {And}
+| OR            {Or}
 ;
 
 argsList

@@ -2,6 +2,7 @@ open Core.Std
 open Lexer
 open Lexing
 open AbstractSyntaxTree
+open Interpretor
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -28,16 +29,30 @@ let rec print_fields fields =
                 |Field(ObjectType(objType),id) -> objType ^ id ^ ";\n" ^ print_fields tl
 
 
-let printProgram x = match x with
-|Program[Class(a,b,fields,_);_]->
-      print_string ("Program: class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n")
-| _ -> print_string "No match\n";;
+let rec printClassList = function
+  [Class(a,b,fields,_)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n");
+  |Class(a,b,fields,_) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n"); printClassList tl;;
+let printProgram = function
+|Program classlist -> printClassList classlist;;
 
+
+let printValue = function
+NullV -> print_string("NullV\n");
+|IntV(i) -> print_string("Int " ^ (string_of_int i) ^ "\n");
+|FloatV(f) -> print_string("Float " ^ (string_of_float f) ^ "\n");
+|BoolV(b) -> print_string("Bool " ^ (string_of_bool b) ^ "\n");
+|VoidV -> print_string("Void\n");
+|LocV _ -> print_string ("Location\n");;
+
+let printExp = function
+Value(v) -> (printValue v);
+|Operation(_,_,_) -> print_string("Main method has an operation as final exp.\n");
+| _ -> print_string("Other type\n");;
 
 let parse_and_print lexbuf =
   match parse_with_error lexbuf with
-  |Some program-> printProgram program;
-  |None -> ()
+  |Some program-> printProgram program; let e = findMainMethod program in let v = (eval e [] [] program) in printValue v
+  |None -> printExp (Value(IntV (2)));;
 
 let loop filename () =
   let inx = In_channel.create filename in
