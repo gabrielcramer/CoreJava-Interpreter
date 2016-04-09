@@ -4,7 +4,7 @@ open Syntax
 type state =
   { e: exp;
     heap: Heap.t;
-    env: Syntax.value Environment.t;
+    env: Syntax.typeValue Environment.t;
     prog: program;
   }
 exception TypeError of string
@@ -39,13 +39,7 @@ exception RuntimeError of string
                                     else getTypeVar id tl
    | [] -> raise(RuntimeError("Unbound variable: " ^ id)) *)
 
-let rec getTypeVal (v:value) = match v with
-  (* TODO: Think about Null and Void *)
-    IntV _s -> IntType
-  | FloatV _ -> FloatType
-  | BoolV _ -> BoolType
-  | VoidV -> VoidType
-  | _ -> failwith "Think about Null and Void "
+
 
 let isLocation = function
   | LocV(_) -> true
@@ -87,36 +81,48 @@ let rerr msg = raise(RuntimeError msg)
 
 
 let rec step (state:state): state = match state.e with
-    Variable(id) -> if Environment.isIn id state.env then let v = Environment.lookup id state.env in {state with e = Value(v)}
+    Variable(id) -> if Environment.isIn id state.env then let v = (Environment.lookup id state.env).value in {state with e = Value(v)}
     else raise (RuntimeError (id ^ "not declared."))
 
 
   | ObjectField(var,field) -> if Environment.isIn var state.env
-    then let loc = Environment.lookup var state.env  in
+    then let loc = (Environment.lookup var state.env).value  in
       (* TODO: check if location is in heap *)
       if isLocation loc then let fldE = (Heap.getFieldEnv loc state.heap) in
-        if Environment.isIn field fldE then let v = Environment.lookup field fldE in {state with e = Value(v)}
+        if Environment.isIn field fldE then let v = (Environment.lookup field fldE).value in {state with e = Value(v)}
         else raise (RuntimeError("Field:" ^ field ^ "not declared inside " ^ var))
       else rerr (var ^ "is not an object.")
     else raise (RuntimeError (var ^ "not declared."))
+  | VariableAssignment(id, exp) -> stepVariableAssignment id exp state
+  | Sequence(e1,e2) -> stepSequence e1 e2 state
+
 
 
 (* | VariableAssignment(id,exp) -> stepVariableAssignment id exp h env prog  *)
 (*| Operation(exp1, op, exp2) -> applyOp op (eval exp1 h env prog) (eval exp2 h env prog);; *)
 
-(* and
+and
 
-   stepVariableAssignment (id:id) (e:exp) (h:heap) (env:stack) (prog:program) = match e with
-    | Value(v) ->  if id isIn env then if getType id env
+  stepVariableAssignment (id:id) (e:exp) (state:state):state = match e with
+    Value(v) ->  if Environment.isIn id state.env then
+      let tVar = Utils.getTypeVar id state.env in let tVal = Utils.getTypeVal v in
+      if Utils.isSubtype tVal tVar then let nEnv = Environment.update id {typ=tVar;value=v} state.env in {state with env = nEnv;e=Value(VoidV)}
+      else rerr ("Invalid types")
+    else rerr (id ^ "not declared.")
+  | _ -> let ns = (step {state with e = e}) in {ns with e = VariableAssignment(id,ns.e) }
+and
+  stepSequence (e1:exp) (e2:exp) (state:state):state = match e1 with
+    Value(v) -> { state with e = e2 }
+  | _ -> let ns = (step {state with e=e1}) in {ns with e = Sequence(ns.e,e2)}
 
-                                  else *)
 let rec multistep (state:state) : value = match state.e with
   | Value(v) -> v
   | exp -> multistep (step state)
 
 let interpret (e:exp) (program:program) : value =
-  let initialEnv = (Environment.extend "a" (IntV 3) Environment.empty) in let initialState = {heap = Heap.empty; env=initialEnv; e=e; prog=program} in multistep initialState
+  let initialEnv = (Environment.extend "a" {typ=IntType;value=IntV 3} Environment.empty) in let initialState = {heap = Heap.empty; env=initialEnv; e=e; prog=program} in multistep initialState
 
 let prg = Program( [Class ("a","b",[],[])] )
-let _ = assert (IntV 22 = interpret (Value(IntV 22)) prg )
+let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )
+let _ = assert (IntV 22 = interpret (Sequence(VariableAssignment("a",Value(IntV 22)),Variable("a") )) prg )
 let _ = assert (IntV 3 = interpret (Variable "a") prg )

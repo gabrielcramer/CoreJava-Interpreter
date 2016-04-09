@@ -1,6 +1,6 @@
 type t = (Syntax.value * heapEntry) list
 (* Problem: the key should be just LocV *)
-and heapEntry = {id: Syntax.id; env: Syntax.value Environment.t}
+and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t}
 exception Not_bound
 
 let empty = []
@@ -11,11 +11,11 @@ let rec union lst heap =
     [] -> heap
   | (x::xs) -> x :: union xs heap
 
-let rec isIn loc heap =
+let isIn loc heap =
   try List.assoc loc heap;true with Not_found -> false
 
-let rec lookup id heap =
+let lookup id heap =
   try List.assoc id heap with Not_found -> raise Not_bound
 
-let rec getFieldEnv loc heap =
+let getFieldEnv loc heap =
   try let objVal = List.assoc loc heap in objVal.env with Not_found -> raise Not_bound

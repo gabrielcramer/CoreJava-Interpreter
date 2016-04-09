@@ -40,8 +40,10 @@ and value = NullV
           | VoidV
           | LocV of int
 
-and typeValue = typ * value
-
+and typeValue =
+  {	typ: typ;
+    value: value
+  }
 and binaryOperator = IPlus
                    | IMinus
                    | IMultiply
