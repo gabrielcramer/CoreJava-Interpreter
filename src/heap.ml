@@ -8,8 +8,8 @@ let extend x v heap = (x,v)::heap
 
 let rec union lst heap =
   match lst with
-      [] -> heap
-    | (x::xs) -> x :: union xs heap
+    [] -> heap
+  | (x::xs) -> x :: union xs heap
 
 let rec isIn loc heap =
   try List.assoc loc heap;true with Not_found -> false

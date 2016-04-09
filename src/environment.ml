@@ -7,8 +7,8 @@ let extend x v env = (x,v)::env
 
 let rec union lst env =
   match lst with
-      [] -> env
-    | (x::xs) -> x :: union xs env
+    [] -> env
+  | (x::xs) -> x :: union xs env
 
 let rec isIn id env =
   try List.assoc id env;true with Not_found -> false
@@ -18,9 +18,9 @@ let rec lookup id env =
 
 let rec update id nv env =
   match env  with
-      [] -> []
-    | (key, v)::tl -> if key = id then (key,nv) :: tl
-                                  else (key,v) :: update id nv tl
+    [] -> []
+  | (key, v)::tl -> if key = id then (key,nv) :: tl
+    else (key,v) :: update id nv tl
 
 let rec map f = function
     [] -> []
