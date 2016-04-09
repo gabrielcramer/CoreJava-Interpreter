@@ -1,7 +1,7 @@
 {
 open Lexing
 open Parser
-open AbstractSyntaxTree
+open Syntax
 
 exception SyntaxError of string
 

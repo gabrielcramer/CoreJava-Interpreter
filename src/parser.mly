@@ -51,8 +51,8 @@
 /*%left IPLUS IMINUS
 %left IMULTIPLY IDIVIDE*/
 
-%{ open AbstractSyntaxTree %}
-%start <AbstractSyntaxTree.program option> program
+%{ open Syntax %}
+%start <Syntax.program option> program
 
 %%
 program:EOF { None }

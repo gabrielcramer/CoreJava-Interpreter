@@ -1,2 +1,2 @@
 #!/bin/bash
-corebuild -use-menhir parser.mlicorebuild -use-menhir parser.mli
+cd src/ && corebuild -use-menhir parser.mlicorebuild -use-menhir parser.mli

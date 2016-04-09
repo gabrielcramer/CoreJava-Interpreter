@@ -1,0 +1,4 @@
+S src/**
+B _build/**
+PKG core_kernel
+PKG core
