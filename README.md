@@ -7,8 +7,7 @@ Interpreter for CoreJava[1] written in OCaml
 3. Run the test. Eg: " ./test.native ./core-java-files/helloworld.java "
 
 # Using ocp-indent
-1. Go to the root of this repo.
-2. Run `ocp-indent -i src/*.ml  src/*.mli`
+1. Run [scripts/ocp-indent.sh](scripts/ocp-indent.sh) from the root of the repo.
 
 # Contributing
 The course CS 421: Programming Languages and Compilers[2] from the University of Illinois provides good resources.
