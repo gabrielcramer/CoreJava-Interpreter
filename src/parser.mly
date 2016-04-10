@@ -86,10 +86,8 @@ methodList
 
 
 methodDeclaration
-:typeD MAIN OPARENT methodParameterList CPARENT LEFT_BRACE
-expression RIGHT_BRACE {MainMethod($1,$4,$7)}
-|typeD ID OPARENT methodParameterList CPARENT LEFT_BRACE
-expression RIGHT_BRACE {Method($1,$2,$4,$7)}
+:typeD MAIN OPARENT methodParameterList CPARENT be=blockExpression {MainMethod($1,$4,be)}
+|typeD ID OPARENT methodParameterList CPARENT be=blockExpression   {Method($1,$2,$4,be)}
 ;
 methodParameterList
 :(* empty *) {[]}
@@ -103,8 +101,26 @@ methodParameterListAux
 methodParameter: typeD ID {($1,$2)}
 ;
 
+blockExpression
+: LEFT_BRACE vars = varDeclList e = expression RIGHT_BRACE {BlockExpression(vars, e) }
+;
+varDeclList
+: (* empty *) {[]}
+|varDeclListAux {$1}
+;
+
+varDeclListAux
+: varDecl  {[$1]}
+| varDecl varDeclListAux {$1::$2}
+;
+
+varDecl
+: typeD ID {($1,$2)}
+;
+
 /*Add semicolon at the end of some expressions*/
 expression
+/*TODO: ADD LocalVariableDeclaration*/
 :INT       {Value(IntV($1))}
 |FLOAT     {Value(FloatV($1))}
 |BOOL      {Value(BoolV($1))}
@@ -113,7 +129,7 @@ expression
 |ID EQUAL expression {VariableAssignment($1,$3)}
 |ID DOT ID EQUAL expression {ObjectFieldAssignment(($1,$3),$5)}
 |e1=expression e2=expression{Sequence(e1,e2)}
-|IF OPARENT guard=ID CPARENT LEFT_BRACE thenExp=expression RIGHT_BRACE
+|IF OPARENT guard=ID CPARENT thenExp=expression
   ELSE LEFT_BRACE elseExp=expression RIGHT_BRACE  {If(guard,thenExp,elseExp)}
 
 |exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1,op,exp2)}
@@ -125,6 +141,7 @@ expression
 /*modify these 2 productions to support also non primitive types.*/
 |OPARENT typeD CPARENT ID {Cast($2,$4)}
 |ID INSTANCEOF typeD {InstanceOf($1,$3)}
+|blockExpression {$1}
 ;
 
 binaryOperator
@@ -135,9 +152,6 @@ binaryOperator
 | FPLUS         {FPlus}
 | FMINUS        {FMinus}
 | FMULTIPLY     {FMultiply}
-| FDIVIDE       {FDivide}
-| LESS          {Less}
-| LESS_EQUAL    {LessEqual}
 | EQ_EQUAL      {EqEqual}
 | GREATER_EQUAL {GreaterEqual}
 | GREATER       {Greater}

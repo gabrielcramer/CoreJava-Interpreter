@@ -9,3 +9,4 @@ val isIn : Syntax.id -> 'a t -> bool
 val lookup : Syntax.id -> 'a t -> 'a
 val update : Syntax.id -> 'a -> 'a t -> 'a t
 val map : ('a -> 'b) -> 'a t -> 'b t
+val pop: Syntax.id -> 'a t -> 'a t

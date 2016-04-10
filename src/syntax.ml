@@ -18,8 +18,8 @@ and exp = Value of value
         | ObjectField of id * id
         | VariableAssignment of id * exp
         | ObjectFieldAssignment of (id * id) * exp
-        | LocalVariableDeclaration of typ * id * exp
-        | Blk of blkExp
+        (* | LocalVariableDeclaration of typ * id * exp *)
+        | BlockExpression of ((typ * id) list) * exp
         | Sequence of exp * exp
         | If of id * exp * exp
         | Operation of exp * binaryOperator * exp
@@ -29,9 +29,10 @@ and exp = Value of value
         | While of id * exp
         | Cast of typ * id
         | InstanceOf of id * typ
-
-and blkExp = Bvar of typ * id * exp
-           | BnVar of exp
+        | Ret of id * exp
+(* and variableDeclaration = VariableDeclaration of typ * id *)
+(* and blkExp = BlockExpression of *)
+           (* | BnVar of exp *)
 
 and value = NullV
           | IntV of int

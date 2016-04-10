@@ -12,3 +12,14 @@ let getTypeVal = function
   | _ -> failwith "Think about Null and Void "
 
 let isSubtype type1 type2 = true
+
+let initValue = function
+    IntType -> IntV(0)
+  | FloatType -> FloatV(0.0)
+  | BoolType -> BoolV(true)
+  | VoidType -> VoidV
+  | ObjectType(_) -> NullV
+
+let isValue = function
+    Value(_) -> true
+  | _ -> false

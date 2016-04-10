@@ -1,6 +1,7 @@
 type 'a t = (Syntax.id * 'a) list
 
 exception Not_bound
+exception RuntimeError of string
 
 let empty = []
 let extend x v env = (x,v)::env
@@ -25,3 +26,7 @@ let rec update id nv env =
 let rec map f = function
     [] -> []
   | (id, v)::rest -> (id, f v) :: map f rest
+
+let pop id = function
+    (id,_) :: tl -> tl
+  | _ -> raise(RuntimeError (id^" is not in top of the stack"))

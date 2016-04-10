@@ -49,16 +49,16 @@ let printExp = function
   |Operation(_,_,_) -> print_string("Main method has an operation as final exp.\n");
   | _ -> print_string("Other type\n");;
 
-(* let parse_and_print lexbuf =
+let parse_and_print lexbuf =
    match parse_with_error lexbuf with
-   |Some program-> printProgram program; let e = findMainMethod program in let v = (eval e [] [] program) in printValue v
-   |None -> printExp (Value(IntV (2)));; *)
+   |Some program-> printProgram program
+   |None -> printExp (Value(IntV (2)));;
 
 let loop filename () =
   let inx = In_channel.create filename in
   let lexbuf = Lexing.from_channel inx in
   lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-  (* parse_and_print lexbuf; *)
+  parse_and_print lexbuf;
   In_channel.close inx
 
 

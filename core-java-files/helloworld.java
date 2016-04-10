@@ -17,6 +17,8 @@ class obj extends object { }
 class Main extends object{
   #
   void main(){
+    int a
+    a = 3
     3 + 3 * 2
   }
 }

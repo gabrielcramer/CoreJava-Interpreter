@@ -95,14 +95,14 @@ let rec step (state:state): state = match state.e with
     else raise (RuntimeError (var ^ "not declared."))
   | VariableAssignment(id, exp) -> stepVariableAssignment id exp state
   | Sequence(e1,e2) -> stepSequence e1 e2 state
-
+  | BlockExpression(list, exp) -> stepBlockExpression list exp state
+  | Ret(v,exp) -> stepRet v exp state
 
 
 (* | VariableAssignment(id,exp) -> stepVariableAssignment id exp h env prog  *)
 (*| Operation(exp1, op, exp2) -> applyOp op (eval exp1 h env prog) (eval exp2 h env prog);; *)
 
 and
-
   stepVariableAssignment (id:id) (e:exp) (state:state):state = match e with
     Value(v) ->  if Environment.isIn id state.env then
       let tVar = Utils.getTypeVar id state.env in let tVal = Utils.getTypeVal v in
@@ -111,9 +111,20 @@ and
     else rerr (id ^ "not declared.")
   | _ -> let ns = (step {state with e = e}) in {ns with e = VariableAssignment(id,ns.e) }
 and
-  stepSequence (e1:exp) (e2:exp) (state:state):state = match e1 with
+  stepSequence (e1:exp) (e2:exp) (state:state) :state = match e1 with
     Value(v) -> { state with e = e2 }
   | _ -> let ns = (step {state with e=e1}) in {ns with e = Sequence(ns.e,e2)}
+and
+  stepBlockExpression (l: ((typ * id) list)) (exp:exp) (state:state):state = match l with
+    [] -> { state with e = exp }
+  | [(typ,id)] -> {state with env = (Environment.extend id {typ=typ;value=Utils.initValue typ} state.env);
+                              e = Ret(id,exp)}
+  | (typ,id)::tl -> {state with env = (Environment.extend id {typ=typ;value=Utils.initValue typ} state.env);
+                                 e = Ret(id,BlockExpression(tl,exp))}
+and
+  stepRet (v:id) (exp:exp) (state:state) :state = if Utils.isValue exp then {state with env = (Environment.pop v state.env);
+                                                                                        e = exp}
+                                                                       else let ns = (step {state with e = exp }) in {ns with e = Ret(v,ns.e)}
 
 let rec multistep (state:state) : value = match state.e with
   | Value(v) -> v
@@ -125,4 +136,6 @@ let interpret (e:exp) (program:program) : value =
 let prg = Program( [Class ("a","b",[],[])] )
 let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )
 let _ = assert (IntV 22 = interpret (Sequence(VariableAssignment("a",Value(IntV 22)),Variable("a") )) prg )
+let _ = assert (IntV 666 = interpret (Sequence(VariableAssignment("a",Sequence(Value(IntV 22),Value(IntV 666) )),Variable("a") )) prg )
+let _ = assert (IntV 1 = interpret (BlockExpression([(IntType,"b")], Variable("b") )) prg )
 let _ = assert (IntV 3 = interpret (Variable "a") prg )
