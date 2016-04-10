@@ -1,2 +1,2 @@
 #!/bin/bash
-opam install menhir ocamlfind core
+opam install menhir ocamlfind core oasis

@@ -6,6 +6,11 @@ Interpreter for CoreJava[1] written in OCaml
 2. Build test.ml using [scripts/build_test.sh](scripts/build_test.sh)
 3. Run the test. Eg: " ./test.native ./core-java-files/helloworld.java "
 
+# Using oasis
+1. After updating the [_oasis](_oasis) config file run `oasis setup -setup-update dynamic`.
+2. Compile: `make -j 4`. The executables specified in the oasis file will be in the current directory with the extension `.native`.
+3. Clean: `make clean`
+
 # Using ocp-indent
 1. Run [scripts/ocp-indent.sh](scripts/ocp-indent.sh) from the root of the repo.
 
