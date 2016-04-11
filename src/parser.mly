@@ -76,7 +76,7 @@ fieldList
 ;
 
 fieldDeclaration:
-|typeD ID SEMICOLON {Field($1,$2)}
+|typeD ID SEMICOLON {($1,$2)}
 ;
 
 methodList

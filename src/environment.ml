@@ -25,7 +25,7 @@ let rec update id nv env =
 
 let rec map f = function
     [] -> []
-  | (id, v)::rest -> (id, f v) :: map f rest
+  | (id, v)::rest -> f id v :: map f rest
 
 let pop id = function
     (id,_) :: tl -> tl

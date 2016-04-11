@@ -1,6 +1,6 @@
 type program = Program of (classDeclaration list)
 
-and classDeclaration = Class of id * id * (fieldDeclaration list) * (methodDeclaration list)
+and classDeclaration = Class of id * id * ((typ * id) list) * (methodDeclaration list)
 
 and fieldDeclaration = Field of typ * id
 
@@ -8,6 +8,8 @@ and typ = IntType
         | FloatType
         | BoolType
         | VoidType
+        | NullType
+        | LocType
         | ObjectType of id
 
 and methodDeclaration = Method of typ * id * ((typ * id) list) * exp
@@ -32,7 +34,7 @@ and exp = Value of value
         | Ret of id * exp
 (* and variableDeclaration = VariableDeclaration of typ * id *)
 (* and blkExp = BlockExpression of *)
-           (* | BnVar of exp *)
+(* | BnVar of exp *)
 
 and value = NullV
           | IntV of int

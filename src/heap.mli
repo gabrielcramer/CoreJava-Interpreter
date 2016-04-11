@@ -1,5 +1,5 @@
 type t
-type heapEntry
+and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t;}
 
 val empty : t
 val extend : Syntax.value -> heapEntry -> t -> t

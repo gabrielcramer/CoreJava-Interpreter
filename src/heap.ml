@@ -1,6 +1,5 @@
 type t = (Syntax.value * heapEntry) list
-(* Problem: the key should be just LocV *)
-and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t}
+and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t;}
 exception Not_bound
 
 let empty = []

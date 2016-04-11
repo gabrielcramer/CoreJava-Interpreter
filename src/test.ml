@@ -22,18 +22,18 @@ let rec print_fields fields =
   match fields with
   | []-> "\n"
   | hd :: tl -> match hd with
-    |Field(IntType,id) -> "int " ^ id ^ ";\n" ^ print_fields tl
-    |Field(FloatType,id) -> "float " ^ id ^ ";\n" ^ print_fields tl
-    |Field(BoolType,id) -> "bool " ^ id ^ ";\n" ^ print_fields tl
-    |Field(VoidType,id) -> "void " ^ id ^ ";\n" ^ print_fields tl
-    |Field(ObjectType(objType),id) -> objType ^ id ^ ";\n" ^ print_fields tl
+    |(IntType,id) -> "int " ^ id ^ ";\n" ^ print_fields tl
+    |(FloatType,id) -> "float " ^ id ^ ";\n" ^ print_fields tl
+    |(BoolType,id) -> "bool " ^ id ^ ";\n" ^ print_fields tl
+    |(VoidType,id) -> "void " ^ id ^ ";\n" ^ print_fields tl
+    |(ObjectType(objType),id) -> objType ^ id ^ ";\n" ^ print_fields tl
 
 
 let rec printClassList = function
     [Class(a,b,fields,_)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n");
   |Class(a,b,fields,_) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n"); printClassList tl;;
 let printProgram = function
-  |Program classlist -> printClassList classlist;;
+    Program classlist -> printClassList classlist;;
 
 
 let printValue = function
@@ -50,9 +50,9 @@ let printExp = function
   | _ -> print_string("Other type\n");;
 
 let parse_and_print lexbuf =
-   match parse_with_error lexbuf with
-   |Some program-> printProgram program
-   |None -> printExp (Value(IntV (2)));;
+  match parse_with_error lexbuf with
+  |Some program-> printProgram program
+  |None -> printExp (Value(IntV (2)));;
 
 let loop filename () =
   let inx = In_channel.create filename in
