@@ -26,12 +26,12 @@ type = 2
 # Indent after `let in` (unless followed by another `let`):
 #    let foo = () in
 #    ^^bar
-in = 0
+in = 2
 
 # Indent after `match/try with` or `function`:
 #    match foo with
 #    ^^| _ -> bar
-with = 0
+with = 2
 
 # Indent for clauses inside a pattern-match (after the arrow):
 #    match foo with

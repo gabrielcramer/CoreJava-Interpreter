@@ -56,96 +56,96 @@
 
 %%
 program:EOF { None }
-|clist = classDeclarationList {Some (Program(clist))}
+| clist = classDeclarationList {Some (Program(clist))}
 ;
 
-classDeclarationList
-:EOF  {[]}
+classDeclarationList:
+| EOF  {[]}
 | classDeclaration classDeclarationList {$1 :: $2}
 ;
 
-classDeclaration
-:CLASS obj = ID EXTENDS parent = ID LEFT_BRACE RIGHT_BRACE {Class(obj,parent,[],[])}
-|CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList RIGHT_BRACE {Class(obj,parent,fields,[])}
-|CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList HASHTAG methods = methodList RIGHT_BRACE {Class(obj,parent,fields,methods)}
+classDeclaration:
+| CLASS obj = ID EXTENDS parent = ID LEFT_BRACE RIGHT_BRACE {Class(obj, parent, [], [])}
+| CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList RIGHT_BRACE {Class(obj, parent, fields, [])}
+| CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList HASHTAG methods = methodList RIGHT_BRACE {Class(obj, parent, fields, methods)}
 ;
 
-fieldList
-:(* empty *) {[]}
-|fieldDeclaration fieldList {$1 :: $2}
+fieldList:
+| (* empty *) {[]}
+| fieldDeclaration fieldList {$1 :: $2}
 ;
 
 fieldDeclaration:
-|typeD ID SEMICOLON {($1,$2)}
+| typeD ID SEMICOLON {($1, $2)}
 ;
 
-methodList
-:(* empty *) {[]}
-|methodDeclaration  methodList {$1 :: $2}
+methodList:
+| (* empty *) {[]}
+| methodDeclaration  methodList {$1 :: $2}
 ;
 
 
-methodDeclaration
-:typeD MAIN OPARENT methodParameterList CPARENT be=blockExpression {MainMethod($1,$4,be)}
-|typeD ID OPARENT methodParameterList CPARENT be=blockExpression   {Method($1,$2,$4,be)}
+methodDeclaration:
+| typeD MAIN OPARENT methodParameterList CPARENT be = blockExpression {MainMethod($1, $4, be)}
+| typeD ID OPARENT methodParameterList CPARENT be = blockExpression   {Method($1, $2, $4, be)}
 ;
-methodParameterList
-:(* empty *) {[]}
-|methodParameterListAux {$1}
-;
-
-methodParameterListAux
-:methodParameter {[$1]}
-|methodParameter COMMA methodParameterListAux {$1::$3}
-;
-methodParameter: typeD ID {($1,$2)}
+methodParameterList:
+|(* empty *) {[]}
+| methodParameterListAux {$1}
 ;
 
-blockExpression
-: LEFT_BRACE vars = varDeclList e = expression RIGHT_BRACE {BlockExpression(vars, e) }
+methodParameterListAux:
+| methodParameter {[$1]}
+| methodParameter COMMA methodParameterListAux {$1 :: $3}
 ;
-varDeclList
-: (* empty *) {[]}
-|varDeclListAux {$1}
-;
-
-varDeclListAux
-: varDecl  {[$1]}
-| varDecl varDeclListAux {$1::$2}
+methodParameter: typeD ID {($1, $2)}
 ;
 
-varDecl
-: typeD ID {($1,$2)}
+blockExpression:
+| LEFT_BRACE vars = varDeclList e = expression RIGHT_BRACE {BlockExpression(vars, e) }
+;
+varDeclList:
+| (* empty *) {[]}
+| varDeclListAux {$1}
+;
+
+varDeclListAux:
+| varDecl  {[$1]}
+| varDecl varDeclListAux {$1 :: $2}
+;
+
+varDecl:
+| typeD ID {($1, $2)}
 ;
 
 /*Add semicolon at the end of some expressions*/
-expression
+expression:
 /*TODO: ADD LocalVariableDeclaration*/
-:INT       {Value(IntV($1))}
-|FLOAT     {Value(FloatV($1))}
-|BOOL      {Value(BoolV($1))}
-|ID        {Variable($1)}
-|ID DOT ID {ObjectField($1,$3)}
-|ID EQUAL expression {VariableAssignment($1,$3)}
-|ID DOT ID EQUAL expression {ObjectFieldAssignment(($1,$3),$5)}
-|e1=expression e2=expression{Sequence(e1,e2)}
-|IF OPARENT guard=ID CPARENT thenExp=expression
-  ELSE LEFT_BRACE elseExp=expression RIGHT_BRACE  {If(guard,thenExp,elseExp)}
+| INT       {Value(IntV($1))}
+| FLOAT     {Value(FloatV($1))}
+| BOOL      {Value(BoolV($1))}
+| ID        {Variable($1)}
+| ID DOT ID {ObjectField($1, $3)}
+| ID EQUAL expression {VariableAssignment($1, $3)}
+| ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
+| e1 = expression e2 = expression{Sequence(e1, e2)}
+| IF OPARENT guard = ID CPARENT thenExp = expression
+  ELSE LEFT_BRACE elseExp = expression RIGHT_BRACE  {If(guard, thenExp, elseExp)}
 
-|exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1,op,exp2)}
+| exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1, op, exp2)}
 
-|NOT expression {Negation($2)}
-|NEW ID OPARENT argsList CPARENT {New($2,$4)}
-|ID DOT ID OPARENT argsList CPARENT {MethodCall($1,$3,$5)}
-|WHILE OPARENT guard = ID CPARENT LEFT_BRACE e = expression RIGHT_BRACE {While(guard,e)}
+| NOT expression {Negation($2)}
+| NEW ID OPARENT argsList CPARENT {New($2, $4)}
+| ID DOT ID OPARENT argsList CPARENT {MethodCall($1, $3, $5)}
+| WHILE OPARENT guard = ID CPARENT LEFT_BRACE e = expression RIGHT_BRACE {While(guard, e)}
 /*modify these 2 productions to support also non primitive types.*/
-|OPARENT typeD CPARENT ID {Cast($2,$4)}
-|ID INSTANCEOF typeD {InstanceOf($1,$3)}
-|blockExpression {$1}
+| OPARENT typeD CPARENT ID {Cast($2, $4)}
+| ID INSTANCEOF typeD {InstanceOf($1, $3)}
+| blockExpression {$1}
 ;
 
-binaryOperator
-: IPLUS         {IPlus}
+binaryOperator:
+| IPLUS         {IPlus}
 | IMINUS        {IMinus}
 | IMULTIPLY     {IMultiply}
 | IDIVIDE       {IDivide}
@@ -160,15 +160,15 @@ binaryOperator
 | OR            {Or}
 ;
 
-argsList
-:/*empty*/ {[]}
-|ID {[$1]}
-|ID COMMA argsList {$1::$3}
+argsList:
+| /*empty*/ {[]}
+| ID {[$1]}
+| ID COMMA argsList {$1 :: $3}
 ;
 
-typeD
-: TINT {IntType}
+typeD:
+| TINT {IntType}
 | TFLOAT {FloatType}
 | TBOOL{BoolType}
-|TVOID {VoidType}
+| TVOID {VoidType}
 ;
