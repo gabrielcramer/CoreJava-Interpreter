@@ -21,16 +21,17 @@ let parse_with_error lexbuf =
 let rec print_fields fields = match fields with
   | []-> "\n"
   | hd :: tl -> match hd with
-    | (IntType, id) -> "int " ^ id ^ ";\n" ^ print_fields tl
-    | (FloatType, id) -> "float " ^ id ^ ";\n" ^ print_fields tl
-    | (BoolType, id) -> "bool " ^ id ^ ";\n" ^ print_fields tl
-    | (VoidType, id) -> "void " ^ id ^ ";\n" ^ print_fields tl
-    | (ObjectType(objType), id) -> objType ^ id ^ ";\n" ^ print_fields tl
-
+    | (id, IntType) -> "int " ^ id ^ ";\n" ^ print_fields tl
+    | (id, FloatType) -> "float " ^ id ^ ";\n" ^ print_fields tl
+    | (id, BoolType) -> "bool " ^ id ^ ";\n" ^ print_fields tl
+    | (id, VoidType) -> "void " ^ id ^ ";\n" ^ print_fields tl
+    | (id, ObjectType(objType)) -> objType ^ id ^ ";\n" ^ print_fields tl
+    | (_,_) -> "INVALID FIELDS"
 
 let rec printClassList = function
-  | [Class(a, b, fields, _)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n");
-  | Class(a, b, fields, _) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n"); printClassList tl;;
+  | [Class(a, b, fields, _)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n")
+  | Class(a, b, fields, _) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n"); printClassList tl
+  | [] -> print_endline ("\n")
 
 let printProgram = function
     Program classlist -> printClassList classlist;;

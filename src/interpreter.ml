@@ -49,11 +49,11 @@ let rec findMainMethod (program : program) : exp = match program with
     else raise(RuntimeError "Not a location");
   | Operation(exp1, op, exp2) -> applyOp op (eval exp1 h env prog) (eval exp2 h env prog); *)
 
-let rerr (msg : string) = raise(RuntimeError ("Error: " ^ msg))
+
 
 
 let rec step (state : state) : state = match state.e with
-  | Value _ -> rerr ("Does not step") (*This case is unreachable if step is called from multistep*)
+  | Value _ -> Utils.rerr ("Does not step") (*This case is unreachable if step is called from multistep*)
   | Variable(id) -> if Environment.isIn id state.env then
       let v = (Environment.lookup id state.env).value in
       {state with e = Value(v)}
@@ -79,22 +79,23 @@ and
     let loc = (Environment.lookup var state.env).value in
     (* TODO: check if location is in heap *)
     if isLocation loc then let fldE = (Heap.getFieldEnv loc state.heap) in
+      print_endline ((Utils.stringOfEnv fldE));
       if Environment.isIn field fldE then
         let v = (Environment.lookup field fldE).value in
         {state with e = Value(v)}
       else raise (RuntimeError("Field " ^ field ^ " not declared inside " ^ var))
-    else rerr (var ^ " is not an object.")
+    else Utils.rerr (var ^ " is not an object.")
   else raise (RuntimeError (var ^ "not declared."))
 
 and
   stepVariableAssignment (id : id) (e : exp) (state : state) : state = match e with
   | Value(v) -> if Environment.isIn id state.env then
       let tVar = Utils.getTypeVar id state.env in let tVal = Utils.getTypeVal v in
-      if Utils.isSubtype tVal tVar then
+      if Utils.isSubtype tVal tVar state.prog then
         let nEnv = Environment.update id {typ = tVar; value = v} state.env in
         {state with env = nEnv; e = Value(VoidV)}
-      else rerr ("Invalid types")
-    else rerr ("Unbound value " ^ id)
+      else Utils.rerr ("Invalid types")
+    else Utils.rerr ("Unbound value " ^ id)
   | _ -> let ns = (step {state with e = e}) in {ns with e = VariableAssignment(id, ns.e)}
 
 and
@@ -103,14 +104,14 @@ and
   | _ -> let ns = (step {state with e = e1}) in {ns with e = Sequence(ns.e, e2)}
 
 and
-  stepBlockExpression (l : ((typ * id) list)) (exp : exp) (state : state) : state = match l with
+  stepBlockExpression (l : ((id * typ) list)) (exp : exp) (state : state) : state = match l with
   | [] -> { state with e = exp }
-  | [(typ, id)] -> {state with
-                    env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
-                    e = Ret(id, exp)}
-  | (typ, id) :: tl -> {state with
-                        env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
-                        e = Ret(id, BlockExpression(tl, exp))}
+  | [(id,typ)] -> {state with
+                   env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
+                   e = Ret(id, exp)}
+  | (id,typ) :: tl -> {state with
+                       env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
+                       e = Ret(id, BlockExpression(tl, exp))}
 
 and
   stepRet (v : id) (exp : exp) (state : state) : state = if Utils.isValue exp then
@@ -121,32 +122,60 @@ and
 and
   stepNew (id : id) (idList : id list) (state : state) : state = match (Utils.firstUnboundVariable idList state.env) with
   | None -> (if Utils.definedInProg id state.prog then
-               let fieldList = Utils.getFieldList id state.prog in
+               let fieldList = (Utils.getFieldList (ObjectType id) state.prog) in
                let typeList = Utils.getTypeList idList state.env in
-               match (Utils.checkFieldsTypes fieldList typeList) with
+               match (Utils.checkFieldsTypes fieldList typeList state.prog) with
                | None -> (let fEnv = (Utils.createFieldEnv fieldList idList state.env) in
                           let nl = LocV(666) in
                           let nh = Heap.extend nl {id = id; env = fEnv} state.heap in
+
                           {state with heap = nh; e = Value(nl)})
-               | Some(field) -> rerr ("Field" ^ field ^ "uncompatibile with its corresponding value")
-             else rerr (id ^ " not defined in prog"))
-  | Some(var) -> rerr ("Unbound value " ^ var)
+               | Some(field) -> Utils.rerr ("Field" ^ field ^ "uncompatibile with its corresponding value")
+             else Utils.rerr (id ^ " not defined in prog"))
+  | Some(var) -> Utils.rerr ("Unbound value " ^ var)
 
 
 let rec multistep (state : state) : value = match state.e with
   | Value(v) -> v
-  | exp -> print_string ((Utils.stringOfEnv state.env) ^ "\n"); multistep (step state)
+  | exp -> print_endline ((Utils.stringOfEnv state.env)); multistep (step state)
 
 let interpret (e : exp) (program : program) : value =
   let initialEnv = (Environment.union [
       ("a", {typ = IntType; value = IntV 3});
-      ("mya"),
-      {typ = ObjectType("a"); value = LocV(2)}] Environment.empty) in
+      ("mya",{typ = ObjectType("a"); value = NullV});
+      ("myb",{typ = ObjectType("b"); value = NullV})] Environment.empty) in
   let initialState = {heap = Heap.empty; env = initialEnv; e = e; prog = program} in
   multistep initialState
 
-let prg = Program( [Class ("a", "Object", [(IntType, "f1")], [])] )
-let _ = assert ("Object" = Utils.getParent "a" prg)
+let prg = Program( [Class ("a", "Object", [("f1",IntType)], []);
+                    Class ("b", "a", [("f2",IntType)], []);Class ("c", "b", [], []);Class ("d", "Object", [], [])] )
+(* Tests for Typechecker *)
+let te = (Environment.union [("a",IntType);("cond",BoolType);("mya",ObjectType("a"));("myc",ObjectType("c"));("myd",ObjectType("d"))] Environment.empty)
+let _ = assert (true = Utils.isSubtype VoidType VoidType prg)
+let _ = assert (true = Utils.isSubtype (ObjectType "b") (ObjectType "Object") prg)
+let _ = assert (true = Utils.isSubtype (ObjectType "c") (ObjectType "Object") prg)
+let _ = assert (true = Utils.isSubtype (ObjectType "c") (ObjectType "a") prg)
+let _ = assert (false = Utils.isSubtype (ObjectType "b") (ObjectType "d") prg)
+let _ = assert (false = Utils.isSubtype (ObjectType "d") (ObjectType "b") prg)
+let _ = assert ((ObjectType "Object") = Utils.getParent (ObjectType "a") prg)
+let _ = assert (Some (ObjectType "Object") = Utils.leastMaxType (ObjectType "c") (ObjectType "d") prg )
+let _ = assert (Some (ObjectType "a") = Utils.leastMaxType (ObjectType "c") (ObjectType "a") prg )
+
+let _ = assert (IntType = Typechecker.typeCheckExp (Value(IntV 3)) te prg )
+let _ = assert (IntType = Typechecker.typeCheckExp (ObjectField("mya", "f1")) te prg)
+let _ = assert (VoidType = Typechecker.typeCheckExp (VariableAssignment ("a", Value(IntV 3)) ) te prg)
+let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (Variable "mya") te prg)
+let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (If ("cond", (Variable "myc"), (Variable "myd")) ) te prg)
+
+let _ = assert (IntType = Typechecker.typeCheckExp (Operation ((Value(IntV 3)),IPlus,(Value(IntV 3)))) te prg)
+let _ = assert (BoolType = Typechecker.typeCheckExp (Operation ((Value(IntV 3)),EqEqual,(Value(IntV 3)))) te prg)
+let _ = assert (true = Utils.isIntOperator IPlus)
+let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (Cast("a","myc")) te prg)
+let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (Cast("Object","myc")) te prg)
+let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (New("a",["a"])) te prg)
+let _ = assert (ObjectType "b" = Typechecker.typeCheckExp (New("b",["a";"a"])) te prg)
+let _ = assert (VoidType = Typechecker.typeCheckExp (While ("cond",(Value(IntV 3))) ) te prg)
+(* Tests for interpreter*)
 (* let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )
    let _ = assert (IntV 22 = interpret (Sequence(VariableAssignment("a",Value(IntV 22)),Variable("a") )) prg )
    let _ = assert (IntV 666 = interpret (Sequence(VariableAssignment("a",Sequence(Value(IntV 22),Value(IntV 666) )),Variable("a") )) prg )
@@ -154,4 +183,5 @@ let _ = assert ("Object" = Utils.getParent "a" prg)
    let _ = assert (IntV 22 = interpret (BlockExpression([(IntType,"b")], Sequence(VariableAssignment("b",Value(IntV 22)),Variable("b") )))  prg ) *)
 let _ = assert (LocV 666 = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])), Variable("mya"))) prg)
 let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])), ObjectField("mya", "f1"))) prg)
+let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("myb", New("b", ["a";"a"])), ObjectField("myb", "f1"))) prg)
 let _ = assert (IntV 3 = interpret (Variable "a") prg )
