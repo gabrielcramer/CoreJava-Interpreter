@@ -116,11 +116,11 @@ varDeclListAux:
 ;
 
 varDecl:
-| TINT ID {($2,IntType)}
-| TFLOAT ID {($2,FloatType)}
-| TBOOL ID {($2,BoolType)}
-| TVOID ID {($2,VoidType)}
-| ID ID {($2,ObjectType($1))}
+| TINT ID {($2, IntType)}
+| TFLOAT ID {($2, FloatType)}
+| TBOOL ID {($2, BoolType)}
+| TVOID ID {($2, VoidType)}
+| ID ID {($2, ObjectType($1))}
 ;
 
 /*Add semicolon at the end of some expressions*/
@@ -133,7 +133,7 @@ expression:
 | ID DOT ID {ObjectField($1, $3)}
 | ID EQUAL expression {VariableAssignment($1, $3)}
 | ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
-| e1 = expression e2 = expression{Sequence(e1, e2)}
+| e1 = expression e2 = expression {Sequence(e1, e2)}
 | IF OPARENT guard = ID CPARENT thenExp = expression
   ELSE LEFT_BRACE elseExp = expression RIGHT_BRACE  {If(guard, thenExp, elseExp)}
 

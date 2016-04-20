@@ -23,6 +23,12 @@ You can also check the examples of parsing from realworldocaml[3].
 ## Can only use Oasis/make OR build scripts
 If `make` fails because it can't find a `.native` file, try to remove the `src/_build` directory and any `.native` files inside `src/` and `setup.data`, `setup.log` from root. Also `make clean` ;).
 
+## Executable does not reflect code changes. WTF? :rage4:
+Ah, you did not respect the rule above :clap:. Try to clean all the files indicated above.
+
+Also note that if you delete `src/_build/` first in Atom editor it will not show the broken links `src/*.native` and you will still get an error if you try to `make`.
+Go and delete the `.native` files manually.
+
 ## SANITIZE: a total of `x` files that should probably not be in your source tree
 This is probably due to you running `menhrir -v src/parser.mly` and the files generated
 `src/parser.ml` and `src/parser.mli`. Manually remove them or run the sanitize script produced in `_build/`.

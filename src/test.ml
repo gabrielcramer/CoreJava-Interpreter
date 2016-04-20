@@ -26,7 +26,7 @@ let rec print_fields fields = match fields with
     | (id, BoolType) -> "bool " ^ id ^ ";\n" ^ print_fields tl
     | (id, VoidType) -> "void " ^ id ^ ";\n" ^ print_fields tl
     | (id, ObjectType(objType)) -> objType ^ id ^ ";\n" ^ print_fields tl
-    | (_,_) -> "INVALID FIELDS"
+    | (_, _) -> "INVALID FIELDS"
 
 let rec printClassList = function
   | [Class(a, b, fields, _)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n")
