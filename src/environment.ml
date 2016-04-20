@@ -11,7 +11,7 @@ let rec union lst env = match lst with
   | (x :: xs) -> x :: union xs env
 
 let rec isIn id env =
-  try List.assoc id env;true with Not_found -> false
+  try List.assoc id env; true with Not_found -> false
 
 let rec lookup id env =
   try List.assoc id env with Not_found -> raise Not_bound

@@ -22,3 +22,8 @@ setup.data
 setup.log
 
 src/.ocp-indent-tmp
+#*.ml#
+src/parser.ml
+src/parser.mli
+*.automaton
+*.conflicts

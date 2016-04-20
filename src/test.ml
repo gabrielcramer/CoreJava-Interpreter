@@ -37,7 +37,7 @@ let printProgram = function
     Program classlist -> printClassList classlist;;
 
 let printValue = function
-  |  NullV -> print_string("NullV\n");
+  | NullV -> print_string("NullV\n");
   | IntV(i) -> print_string("Int " ^ (string_of_int i) ^ "\n");
   | FloatV(f) -> print_string("Float " ^ (string_of_float f) ^ "\n");
   | BoolV(b) -> print_string("Bool " ^ (string_of_bool b) ^ "\n");

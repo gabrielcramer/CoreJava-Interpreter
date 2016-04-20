@@ -28,7 +28,7 @@ and typeCheckValueExp = function
   | LocV _ -> LocType
 
 and typeCheckClassName cn prog = if Utils.definedInProg cn prog then (ObjectType cn)
- else Utils.rerr ("Unbound class " ^ cn)
+  else Utils.rerr ("Unbound class " ^ cn)
 
 and typeCheckVariableExp id tenv = if Environment.isIn id tenv then Environment.lookup id tenv else Raise_error.unboundVar id
 
@@ -41,11 +41,11 @@ and typeCheckObjectFieldExp var field tenv prog = let varType = typeCheckVariabl
 
 and typeCheckVariableAssignmentExp id exp tenv prog = let varType = typeCheckVariableExp id tenv in
   let expType = typeCheckExp exp tenv prog in if Utils.isSubtype expType varType prog then VoidType
-  else Utils.rerr ("Type of " ^ id ^ "("^ (Utils.stringOfType varType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
+  else Utils.rerr ("Type of " ^ id ^ "(" ^ (Utils.stringOfType varType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
 
 and typeCheckObjectFieldAssignmentExp var field exp tenv prog = let fieldType = typeCheckObjectFieldExp var field tenv prog in
   let expType = typeCheckExp exp tenv prog in if Utils.isSubtype expType fieldType prog then VoidType
-  else Utils.rerr ("Type of " ^ var ^ "."^field ^ "("^ (Utils.stringOfType fieldType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
+  else Utils.rerr ("Type of " ^ var ^ "." ^ field ^ "(" ^ (Utils.stringOfType fieldType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
 
 and typeCheckSequenceExp e1 e2 tenv prog = let _ = typeCheckExp e1 tenv prog in typeCheckExp e2 tenv prog
 
@@ -77,16 +77,16 @@ and typeCheckNegationExp e tenv prog = let et = (typeCheckExp e tenv prog) in if
   else Utils.raiseDifferentTypeExpErr e et BoolType
 
 and typeCheckCastExp cn var tenv prog = let cnType = (typeCheckClassName cn prog) in let varType = (typeCheckVariableExp var tenv) in
-    if ((Utils.isSubtype cnType varType prog) || (Utils.isSubtype varType cnType prog ) ) then cnType
-    else Utils.rerr ("Can not cast a variable of type " ^ (Utils.stringOfType varType) ^ " to type " ^ (Utils.stringOfType cnType) )
+  if ((Utils.isSubtype cnType varType prog) || (Utils.isSubtype varType cnType prog ) ) then cnType
+  else Utils.rerr ("Can not cast a variable of type " ^ (Utils.stringOfType varType) ^ " to type " ^ (Utils.stringOfType cnType) )
 
 and typeCheckInstanceOfExp var cn tenv prog = let _ = (typeCheckClassName cn prog) in
- let _ = (typeCheckVariableExp var tenv) in BoolType
+  let _ = (typeCheckVariableExp var tenv) in BoolType
 
 
 and typeCheckNewExp cn varList tenv prog = let cnType = (typeCheckClassName cn prog) in
- let fieldList = Utils.getFieldList cnType prog in let varTypes = (List.map varList (fun var -> typeCheckVariableExp var tenv)) in
- try if List.for_all2_exn fieldList varTypes (fun f vt -> match f with (fn,ft) -> (Utils.isSubtype vt ft prog)) then cnType else raise (Invalid_argument ".") with Invalid_argument _ ->  Utils.rerr ("Number of arguments is not equal with the number of fields")
+  let fieldList = Utils.getFieldList cnType prog in let varTypes = (List.map varList (fun var -> typeCheckVariableExp var tenv)) in
+  try if List.for_all2_exn fieldList varTypes (fun f vt -> match f with (fn,ft) -> (Utils.isSubtype vt ft prog)) then cnType else raise (Invalid_argument ".") with Invalid_argument _ ->  Utils.rerr ("Number of arguments is not equal with the number of fields")
 
 and typeCheckWhileExp var e tenv prog =  let varType =  (typeCheckVariableExp var tenv) in
   if Utils.isSubtype varType BoolType prog then let _ = (typeCheckExp e tenv prog) in VoidType

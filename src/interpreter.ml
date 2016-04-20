@@ -23,7 +23,7 @@ let rec findMainMethodRec (classDeclList : classDeclaration list) : exp = match 
       | [MainMethod(_, _, exp)] -> exp
       | _ -> raise (RuntimeError "There is no main method.\n")
     )
-  | Class(_, _, _, _)::tl -> findMainMethodRec tl
+  | Class(_, _, _, _) :: tl -> findMainMethodRec tl
 
 let rec findMainMethod (program : program) : exp = match program with
     Program classDeclList -> findMainMethodRec classDeclList
@@ -48,7 +48,6 @@ let rec findMainMethod (program : program) : exp = match program with
    | ObjectField(var,field) -> let loc = lookup var env in if isLocation loc then let fldE = getFieldEnv loc h in let v = lookup field fldE in v
     else raise(RuntimeError "Not a location");
   | Operation(exp1, op, exp2) -> applyOp op (eval exp1 h env prog) (eval exp2 h env prog); *)
-
 
 
 

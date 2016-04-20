@@ -176,5 +176,4 @@ typeD:
 | TFLOAT {FloatType}
 | TBOOL{BoolType}
 | TVOID {VoidType}
-
 ;
