@@ -18,19 +18,9 @@ let parse_with_error lexbuf =
     fprintf stderr "%a: syntax error\n" print_position lexbuf;
     exit (-1)
 
-let rec print_fields fields = match fields with
-  | []-> "\n"
-  | hd :: tl -> match hd with
-    | (id, IntType) -> "int " ^ id ^ ";\n" ^ print_fields tl
-    | (id, FloatType) -> "float " ^ id ^ ";\n" ^ print_fields tl
-    | (id, BoolType) -> "bool " ^ id ^ ";\n" ^ print_fields tl
-    | (id, VoidType) -> "void " ^ id ^ ";\n" ^ print_fields tl
-    | (id, ObjectType(objType)) -> objType ^ id ^ ";\n" ^ print_fields tl
-    | (_, _) -> "INVALID FIELDS"
-
 let rec printClassList = function
-  | [Class(a, b, fields, _)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n")
-  | Class(a, b, fields, _) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (print_fields fields) ^ "#\n" ^ "}" ^ "\n"); printClassList tl
+  | [Class(a, b, fields, methods)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (String.concat ~sep:"\n"  (Utils.stringListOfIdTypList fields)) ^ "\n#\n" ^ (Utils.stringOfMethods methods) ^ "}" ^ "\n")
+  | Class(a, b, fields, methods) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (String.concat ~sep:"\n" (Utils.stringListOfIdTypList fields)) ^ "\n#\n" ^ (Utils.stringOfMethods methods) ^ "}" ^ "\n"); printClassList tl
   | [] -> print_endline ("\n")
 
 let printProgram = function

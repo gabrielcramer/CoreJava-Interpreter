@@ -1,2 +1,2 @@
 #!/bin/bash
-cd src/ && ocamlbuild -use-menhir -tag thread -use-ocamlfind -pkg core test.native
+cd src/ && ocamlbuild -ocamlyacc "menhir --explain --interpret-show-cst" -tag thread -use-ocamlfind -pkg core test.native

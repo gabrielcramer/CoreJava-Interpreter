@@ -53,11 +53,7 @@ let rec findMainMethod (program : program) : exp = match program with
 
 let rec step (state : state) : state = match state.e with
   | Value _ -> Utils.rerr ("Does not step") (*This case is unreachable if step is called from multistep*)
-  | Variable(id) -> if Environment.isIn id state.env then
-      let v = (Environment.lookup id state.env).value in
-      {state with e = Value(v)}
-    else raise (RuntimeError (id ^ "not declared."))
-
+  | Variable(id) ->  stepVariable id state
   | ObjectField(var, field) -> stepObjectField var field state
   | VariableAssignment(id, exp) -> stepVariableAssignment id exp state
   | ObjectFieldAssignment((c, f), e) -> state (*TODO*)
@@ -73,6 +69,10 @@ let rec step (state : state) : state = match state.e with
   | InstanceOf(id, t) -> state (*TODO*)
   | MethodCall(cn, mn, params) -> state (*TODO*)
 
+and
+  stepVariable (var:id) (state:state) : state = if Environment.isIn var state.env then
+    let v = (Environment.lookup var state.env).value in {state with e = Value(v)}
+  else Raise_error.unboundVar var
 and
   stepObjectField (var : id) (field : id) (state : state) : state = if Environment.isIn var state.env then
     let loc = (Environment.lookup var state.env).value in
@@ -174,13 +174,15 @@ let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (Cast("Object","m
 let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (New("a",["a"])) te prg)
 let _ = assert (ObjectType "b" = Typechecker.typeCheckExp (New("b",["a";"a"])) te prg)
 let _ = assert (VoidType = Typechecker.typeCheckExp (While ("cond",(Value(IntV 3))) ) te prg)
+
+
 (* Tests for interpreter*)
 (* let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )
    let _ = assert (IntV 22 = interpret (Sequence(VariableAssignment("a",Value(IntV 22)),Variable("a") )) prg )
    let _ = assert (IntV 666 = interpret (Sequence(VariableAssignment("a",Sequence(Value(IntV 22),Value(IntV 666) )),Variable("a") )) prg )
    let _ = assert (IntV 0 = interpret (BlockExpression([(IntType,"b")], Variable("b") )) prg )
-   let _ = assert (IntV 22 = interpret (BlockExpression([(IntType,"b")], Sequence(VariableAssignment("b",Value(IntV 22)),Variable("b") )))  prg ) *)
-let _ = assert (LocV 666 = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])), Variable("mya"))) prg)
-let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])), ObjectField("mya", "f1"))) prg)
-let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("myb", New("b", ["a";"a"])), ObjectField("myb", "f1"))) prg)
-let _ = assert (IntV 3 = interpret (Variable "a") prg )
+   let _ = assert (IntV 22 = interpret (BlockExpression([(IntType,"b")], Sequence(VariableAssignment("b",Value(IntV 22)),Variable("b") )))  prg )
+   let _ = assert (LocV 666 = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])), Variable("mya"))) prg)
+   let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])), ObjectField("mya", "f1"))) prg)
+   let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("myb", New("b", ["a";"a"])), ObjectField("myb", "f1"))) prg)
+   let _ = assert (IntV 3 = interpret (Variable "a") prg ) *)

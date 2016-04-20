@@ -48,8 +48,9 @@
 %token INSTANCEOF
 %token EOF
 
-/*%left IPLUS IMINUS
-%left IMULTIPLY IDIVIDE*/
+%left IMULTIPLY IDIVIDE
+%left IPLUS IMINUS
+
 
 %{ open Syntax %}
 %start <Syntax.program option> program
@@ -77,7 +78,7 @@ fieldList:
 ;
 
 fieldDeclaration:
-| varDecl SEMICOLON {$1}
+| varDecl {$1}
 ;
 
 methodList:
@@ -116,11 +117,12 @@ varDeclListAux:
 ;
 
 varDecl:
-| TINT ID {($2, IntType)}
-| TFLOAT ID {($2, FloatType)}
-| TBOOL ID {($2, BoolType)}
-| TVOID ID {($2, VoidType)}
-| ID ID {($2, ObjectType($1))}
+| TINT ID SEMICOLON  {($2,IntType)}
+| TFLOAT ID SEMICOLON {($2,FloatType)}
+| TBOOL ID SEMICOLON {($2,BoolType)}
+| TVOID ID SEMICOLON {($2,VoidType)}
+| ID ID SEMICOLON {($2,ObjectType($1))}
+
 ;
 
 /*Add semicolon at the end of some expressions*/
@@ -129,12 +131,12 @@ expression:
 | INT       {Value(IntV($1))}
 | FLOAT     {Value(FloatV($1))}
 | BOOL      {Value(BoolV($1))}
-| ID        {Variable($1)}
+| ID     {Variable($1)}
 | ID DOT ID {ObjectField($1, $3)}
-| ID EQUAL expression {VariableAssignment($1, $3)}
+| ID; EQUAL; expression; {VariableAssignment($1, $3)}
 | ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
-| e1 = expression e2 = expression {Sequence(e1, e2)}
-| IF OPARENT guard = ID CPARENT thenExp = expression
+| e1 = expression e2 = expression{Sequence(e1, e2)}
+| IF OPARENT guard = ID CPARENT LEFT_BRACE thenExp = expression RIGHT_BRACE
   ELSE LEFT_BRACE elseExp = expression RIGHT_BRACE  {If(guard, thenExp, elseExp)}
 
 | exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1, op, exp2)}
@@ -146,7 +148,7 @@ expression:
 /*modify these 2 productions to support also non primitive types.*/
 | OPARENT ID CPARENT ID {Cast($2, $4)}
 | ID INSTANCEOF ID {InstanceOf($1, $3)}
-| blockExpression {$1}
+/*| blockExpression {$1}*/
 ;
 
 binaryOperator:

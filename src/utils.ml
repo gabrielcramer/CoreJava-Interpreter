@@ -1,7 +1,9 @@
 open Syntax
-exception RuntimeError of string
 
+exception RuntimeError of string
 let rerr (msg : string) = raise(RuntimeError ("Error: " ^ msg))
+
+
 
 let stringOfType = function
   |  IntType -> "IntType"
@@ -12,6 +14,11 @@ let stringOfType = function
   | LocType -> "LocType"
   | ObjectType(obj) -> "ObjectType(" ^ obj ^ ")"
 
+let rec stringListOfIdTypList = function
+  | []-> []
+  | hd :: tl -> match hd with
+    | (id, typ) -> ((stringOfType typ) ^" "^ id) :: stringListOfIdTypList tl
+
 let stringOfValue = function
   | NullV -> "NullV"
   | IntV(i) -> "Int " ^ (string_of_int i)
@@ -20,7 +27,36 @@ let stringOfValue = function
   | VoidV -> "Void"
   | LocV(l) -> "Location(" ^ (string_of_int l) ^ ")"
 
-let stringOfExp = function _ -> "exp" (*TODO: implement this method*)
+let stringOfOp = function
+  |IPlus -> "+"
+  |IMinus -> "-"
+  |IDivide -> "/"
+  |IMultiply -> "*"
+  | _ -> "floatOp"
+
+let rec stringOfExp = function
+  | Value(v) -> stringOfValue v
+  | Variable(id) -> "variable " ^ id
+  | ObjectField(var, field) -> "ObjectField"
+  | VariableAssignment(id, exp) -> "VariableAssignment"^ id ^ "="^ "("^ stringOfExp exp ^ ")"
+  | ObjectFieldAssignment((var, f), e) -> "ObjectFieldAssignment"
+  | Sequence(e1, e2) -> "Sequence("^ stringOfExp e1 ^ ")("^ stringOfExp e2 ^ ")"
+  | BlockExpression(list, exp) -> "BlockExpression("^ stringOfExp exp ^ ")"
+  | If (id, et, ee) -> "If"^ id^ "then ("^ stringOfExp et ^ ")else(" ^ stringOfExp ee ^ ")"
+  | Operation(e1, op, e2) -> "Operation("^ stringOfExp e1 ^ ")" ^(stringOfOp op)^"(" ^ stringOfExp e2 ^ ")"
+  | Negation(e) -> "negation"
+  | New(cn, varList) -> "new"
+  | While(var, e) -> "while"
+  | Cast(cn, var) -> "cast"
+  | InstanceOf(var, cn) -> "InstanceOf"
+  | MethodCall(cn, mn, params) -> "MethodCall"
+  | Ret(v, exp) -> "ret"
+
+let rec stringOfMethods =function
+  | [] -> "\n"
+  | hd :: tl -> match hd with
+    | Method(t,n,args,exp) -> (stringOfType t) ^ " " ^ n ^ " ("^ (String.concat ", "  (stringListOfIdTypList args))^")\n" ^ (stringOfExp exp)
+    | MainMethod(t,args,exp) -> (stringOfType t) ^ " " ^ "main" ^ " ("^ (String.concat ", "  (stringListOfIdTypList args))^")\n" ^ (stringOfExp exp)
 
 let stringOfEnv env =
   let stringList = (Environment.map
@@ -115,6 +151,7 @@ let rec isSubtype t1 t2 prog= match t1, t2 with
   | LocType, ObjectType _ -> true
   | ObjectType(cn1), ObjectType(cn2) -> let p = (getParent t1 prog) in if t2 = p then true else (isSubtype p t2 prog)
   | a, b -> if a = b then true else (print_endline ("IN ISSUBTYPE(this should never happen :) )" ^ (stringOfType a) ^ "," ^ (stringOfType b)); false)
+
 
 let rec checkFieldsTypes fields types prog = match fields, types with
   | (f,tf) :: tlf, tv :: tlt -> if isSubtype tv tf prog then checkFieldsTypes tlf tlt prog else Some(f)
