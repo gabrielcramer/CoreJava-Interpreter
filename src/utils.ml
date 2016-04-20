@@ -17,7 +17,7 @@ let stringOfType = function
 let rec stringListOfIdTypList = function
   | []-> []
   | hd :: tl -> match hd with
-    | (id, typ) -> ((stringOfType typ) ^" "^ id) :: stringListOfIdTypList tl
+    | (id, typ) -> ((stringOfType typ) ^ " " ^ id) :: stringListOfIdTypList tl
 
 let stringOfValue = function
   | NullV -> "NullV"
@@ -28,21 +28,21 @@ let stringOfValue = function
   | LocV(l) -> "Location(" ^ (string_of_int l) ^ ")"
 
 let stringOfOp = function
-  |IPlus -> "+"
-  |IMinus -> "-"
-  |IDivide -> "/"
-  |IMultiply -> "*"
+  |IPlus -> " + "
+  |IMinus -> " - "
+  |IDivide -> " / "
+  |IMultiply -> " * "
   | _ -> "floatOp"
 
 let rec stringOfExp = function
   | Value(v) -> stringOfValue v
   | Variable(id) -> "variable " ^ id
   | ObjectField(var, field) -> "ObjectField"
-  | VariableAssignment(id, exp) -> "VariableAssignment"^ id ^ "="^ "("^ stringOfExp exp ^ ")"
+  | VariableAssignment(id, exp) -> "VariableAssignment " ^ id ^ " = " ^ "("^ stringOfExp exp ^ ")"
   | ObjectFieldAssignment((var, f), e) -> "ObjectFieldAssignment"
-  | Sequence(e1, e2) -> "Sequence("^ stringOfExp e1 ^ ")("^ stringOfExp e2 ^ ")"
-  | BlockExpression(list, exp) -> "BlockExpression("^ stringOfExp exp ^ ")"
-  | If (id, et, ee) -> "If"^ id^ "then ("^ stringOfExp et ^ ")else(" ^ stringOfExp ee ^ ")"
+  | Sequence(e1, e2) -> "Sequence(" ^ stringOfExp e1 ^ "),\n(" ^ stringOfExp e2 ^ "/* endsequence */) "
+  | BlockExpression(list, exp) -> "BlockExpression {\n" ^ stringOfExp exp ^ "\n}"
+  | If (id, et, ee) -> "If (" ^ id ^ ") then \n"^ stringOfExp et ^ "\n else  \n" ^ stringOfExp ee ^ " /* endif */ \n"
   | Operation(e1, op, e2) -> "Operation("^ stringOfExp e1 ^ ")" ^(stringOfOp op)^"(" ^ stringOfExp e2 ^ ")"
   | Negation(e) -> "negation"
   | New(cn, varList) -> "new"
@@ -55,8 +55,8 @@ let rec stringOfExp = function
 let rec stringOfMethods =function
   | [] -> "\n"
   | hd :: tl -> match hd with
-    | Method(t,n,args,exp) -> (stringOfType t) ^ " " ^ n ^ " ("^ (String.concat ", "  (stringListOfIdTypList args))^")\n" ^ (stringOfExp exp)
-    | MainMethod(t,args,exp) -> (stringOfType t) ^ " " ^ "main" ^ " ("^ (String.concat ", "  (stringListOfIdTypList args))^")\n" ^ (stringOfExp exp)
+    | Method(t, n, args, exp) -> (stringOfType t) ^ " " ^ n ^ " (" ^ (String.concat ", "  (stringListOfIdTypList args)) ^ ") \n" ^ (stringOfExp exp) ^ "\n/* endmethod */\n"
+    | MainMethod(t, args, exp) -> (stringOfType t) ^ " " ^ "main" ^ " ("^ (String.concat ", "  (stringListOfIdTypList args)) ^ ")\n" ^ (stringOfExp exp)
 
 let stringOfEnv env =
   let stringList = (Environment.map

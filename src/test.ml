@@ -6,8 +6,8 @@ open Interpreter
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
-  fprintf outx "%s:%d:%d" pos.pos_fname
-    pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1)
+  fprintf outx "%s: line = %d, column = %d at `%s`" pos.pos_fname
+    pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1) (Lexing.lexeme lexbuf)
 
 let parse_with_error lexbuf =
   try Parser.program Lexer.read lexbuf with
@@ -15,12 +15,14 @@ let parse_with_error lexbuf =
     fprintf stderr "%a: %s\n" print_position lexbuf msg;
     None
   | Parser.Error ->
-    fprintf stderr "%a: syntax error\n" print_position lexbuf;
+    fprintf stderr "%a: syntax error while parsing\n" print_position lexbuf;
     exit (-1)
 
 let rec printClassList = function
-  | [Class(a, b, fields, methods)] -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (String.concat ~sep:"\n"  (Utils.stringListOfIdTypList fields)) ^ "\n#\n" ^ (Utils.stringOfMethods methods) ^ "}" ^ "\n")
-  | Class(a, b, fields, methods) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ "{\n"^ (String.concat ~sep:"\n" (Utils.stringListOfIdTypList fields)) ^ "\n#\n" ^ (Utils.stringOfMethods methods) ^ "}" ^ "\n"); printClassList tl
+  | Class(a, b, fields, methods) :: tl -> print_string ("class " ^ a ^ " extends " ^ b ^ " {\n"
+                                                        ^ (String.concat ~sep:"\n" (Utils.stringListOfIdTypList fields))
+                                                        ^ "\n#\n" ^ (Utils.stringOfMethods methods)
+                                                        ^ "\n} /* endclass */\n\n"); printClassList tl
   | [] -> print_endline ("\n")
 
 let printProgram = function

@@ -26,7 +26,6 @@ let exp = ['e' 'E'] ['-' '+']? digit+
 let float = digit* frac? exp?
 
 
-
 rule read = parse
      | white    { read lexbuf }
      | newline  { next_line lexbuf; read lexbuf }

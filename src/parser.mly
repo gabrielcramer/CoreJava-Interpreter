@@ -48,15 +48,14 @@
 %token INSTANCEOF
 %token EOF
 
-%left IMULTIPLY IDIVIDE
-%left IPLUS IMINUS
-
+/*%left IMULTIPLY IDIVIDE
+%left IPLUS IMINUS*/
 
 %{ open Syntax %}
 %start <Syntax.program option> program
-
 %%
-program:EOF { None }
+
+program:
 | clist = classDeclarationList {Some (Program(clist))}
 ;
 
@@ -67,8 +66,6 @@ classDeclarationList:
 
 classDeclaration:
 | CLASS obj = ID LEFT_BRACE RIGHT_BRACE {Class(obj, "Object", [], [])}
-| CLASS obj = ID EXTENDS parent = ID LEFT_BRACE RIGHT_BRACE {Class(obj, parent, [], [])}
-| CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList RIGHT_BRACE {Class(obj, parent, fields, [])}
 | CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList HASHTAG methods = methodList RIGHT_BRACE {Class(obj, parent, fields, methods)}
 ;
 
@@ -83,7 +80,7 @@ fieldDeclaration:
 
 methodList:
 | (* empty *) {[]}
-| methodDeclaration  methodList {$1 :: $2}
+| methodDeclaration methodList {$1 :: $2}
 ;
 
 
@@ -104,7 +101,7 @@ methodParameter: typeD ID {($2, $1)}
 ;
 
 blockExpression:
-| LEFT_BRACE vars = varDeclList e = expression RIGHT_BRACE {BlockExpression(vars, e) }
+| LEFT_BRACE vars = varDeclList HASHTAG e = expression RIGHT_BRACE {BlockExpression(vars, e) }
 ;
 varDeclList:
 | (* empty *) {[]}
@@ -112,17 +109,16 @@ varDeclList:
 ;
 
 varDeclListAux:
-| varDecl  {[$1]}
+| varDecl {[$1]}
 | varDecl varDeclListAux {$1 :: $2}
 ;
 
 varDecl:
-| TINT ID SEMICOLON  {($2,IntType)}
-| TFLOAT ID SEMICOLON {($2,FloatType)}
-| TBOOL ID SEMICOLON {($2,BoolType)}
-| TVOID ID SEMICOLON {($2,VoidType)}
-| ID ID SEMICOLON {($2,ObjectType($1))}
-
+| TINT ID SEMICOLON  {($2, IntType)}
+| TFLOAT ID SEMICOLON {($2, FloatType)}
+| TBOOL ID SEMICOLON {($2, BoolType)}
+| TVOID ID SEMICOLON {($2, VoidType)}
+| ID ID SEMICOLON {($2, ObjectType($1))}
 ;
 
 /*Add semicolon at the end of some expressions*/
@@ -131,17 +127,20 @@ expression:
 | INT       {Value(IntV($1))}
 | FLOAT     {Value(FloatV($1))}
 | BOOL      {Value(BoolV($1))}
-| ID     {Variable($1)}
-| ID DOT ID {ObjectField($1, $3)}
-| ID; EQUAL; expression; {VariableAssignment($1, $3)}
-| ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
-| e1 = expression e2 = expression{Sequence(e1, e2)}
-| IF OPARENT guard = ID CPARENT LEFT_BRACE thenExp = expression RIGHT_BRACE
-  ELSE LEFT_BRACE elseExp = expression RIGHT_BRACE  {If(guard, thenExp, elseExp)}
+| ID        {Variable($1)}
 
+/* instance:name */
+| ID COLON ID {ObjectField($1, $3)}
+/* instance:name = "hehe" */
+| ID COLON ID EQUAL expression SEMICOLON {ObjectFieldAssignment(($1, $3), $5)}
+
+| ID; EQUAL; expression; SEMICOLON {VariableAssignment($1, $3)}
+| e1 = expression e2 = expression {Sequence(e1, e2)}
+| IF OPARENT guard = ID CPARENT LEFT_BRACE thenExp = expression RIGHT_BRACE
+  ELSE LEFT_BRACE elseExp = expression RIGHT_BRACE {If(guard, thenExp, elseExp)}
 | exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1, op, exp2)}
 
-| NOT expression {Negation($2)}
+| OPARENT NOT expression CPARENT {Negation($3)}
 | NEW ID OPARENT argsList CPARENT {New($2, $4)}
 | ID DOT ID OPARENT argsList CPARENT {MethodCall($1, $3, $5)}
 | WHILE OPARENT guard = ID CPARENT be = blockExpression {While(guard, be)}
@@ -176,6 +175,6 @@ argsList:
 typeD:
 | TINT {IntType}
 | TFLOAT {FloatType}
-| TBOOL{BoolType}
+| TBOOL {BoolType}
 | TVOID {VoidType}
 ;
