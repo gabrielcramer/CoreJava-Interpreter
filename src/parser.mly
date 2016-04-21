@@ -52,7 +52,11 @@
 %left EQUAL
 %right OR
 %right AND
+<<<<<<< HEAD
 %left LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
+=======
+%left  LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
+>>>>>>> Improve grammar in parser.mly
 %left IPLUS IMINUS FPLUS FMINUS
 %left IMULTIPLY IDIVIDE FMULTIPLY FDIVIDE
 %{ open Syntax %}
@@ -106,6 +110,10 @@ methodParameter: typeD ID {($2, $1)}
 
 blockExpression:
 | LEFT_BRACE vars = varDeclList HASHTAG e = seqExpression RIGHT_BRACE {BlockExpression(vars, e) }
+<<<<<<< HEAD
+=======
+
+>>>>>>> Improve grammar in parser.mly
 ;
 varDeclList:
 | (* empty *) {[]}
@@ -114,7 +122,10 @@ varDeclList:
 
 varDeclListAux:
 | varDecl {[$1]}
+<<<<<<< HEAD
 | varDecl varDeclListAux { $1 :: $2}
+=======
+>>>>>>> Improve grammar in parser.mly
 
 varDecl:
 | TINT ID SEMICOLON  {($2, IntType)}
@@ -132,11 +143,19 @@ expression:
 | NULL      {Value(NullV)}
 | ID        {Variable($1)}
 
+<<<<<<< HEAD
 | ID DOT ID {ObjectField($1, $3)}
 | ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
 
 | ID EQUAL expression {VariableAssignment($1, $3)}
 | IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE elseExp = groupExpression {If(guard, thenExp, elseExp)}
+=======
+
+| ID DOT ID {ObjectField($1, $3)}
+| ID DOT ID EQUAL expression SEMICOLON {ObjectFieldAssignment(($1, $3), $5)}
+| ID EQUAL expression {VariableAssignment($1, $3)}
+| IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE  elseExp = groupExpression {If(guard, thenExp, elseExp)}
+>>>>>>> Improve grammar in parser.mly
 | operationExpression {$1}
 
 | OPARENT NOT expression CPARENT {Negation($3)}
@@ -171,6 +190,10 @@ operationExpression:
 | exp1 = expression NOT_EQUAL exp2 = expression {Operation(exp1, NotEqual, exp2)}
 | exp1 = expression AND exp2 = expression {Operation(exp1, And, exp2)}
 | exp1 = expression OR exp2 = expression {Operation(exp1, Or, exp2)}
+<<<<<<< HEAD
+=======
+
+>>>>>>> Improve grammar in parser.mly
 ;
 
 seqExpression:
@@ -178,6 +201,7 @@ seqExpression:
 | expression SEMICOLON  {$1}
 | e1 = expression SEMICOLON e2 = seqExpression {Sequence(e1, e2)}
 ;
+
 
 argsList:
 | /*empty*/ {[]}

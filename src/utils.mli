@@ -4,6 +4,7 @@ val getTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.typ option
 val getMethodDefinition: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.methodDeclaration option
 
 
+
 val leastMaxType: Syntax.typ -> Syntax.typ -> Syntax.program -> Syntax.typ option
 
 val initValue: Syntax.typ -> Syntax.value
@@ -33,9 +34,21 @@ val substVariableName: Syntax.id -> Syntax.id -> Syntax.exp -> Syntax.exp
 
 val compareValues: [> `Float of float | `Int of int ] -> [> `Float of float | `Int of int ] -> Syntax.binaryOperator-> Syntax.value
 
+(* Secure *)
+val isSubLabel: Syntax.label -> Syntax.label -> bool
+val isSecureSubtype: Syntax.secureType -> Syntax.secureType -> Syntax.program -> bool
+val lubLabel: Syntax.label -> Syntax.label -> Syntax.label
+val glbLabel: Syntax.label -> Syntax.label -> Syntax.label
+val getSecureTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.secureType option
+
+
+val stringOfSecureType: Syntax.secureType -> string
+
 val stringOfType: Syntax.typ -> string
 val stringListOfIdTypList: (Syntax.id * Syntax.typ) list -> string list
 val stringOfValue: Syntax.value -> string
 val stringOfEnv: Syntax.typeValue Environment.t -> string
 val stringOfExp: Syntax.exp -> string
 val stringOfMethods: Syntax.methodDeclaration list -> string
+
+val stringOfLabel: Syntax.label -> string

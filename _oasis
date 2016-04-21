@@ -9,7 +9,7 @@ BuildTools: ocamlbuild
 Plugins: META (0.4), DevFiles (0.4)
 
 
-Executable "test"
+Executable "jexp"
   Path: src/
   MainIs: jexp.ml
   CompiledObject: best
@@ -19,6 +19,14 @@ Executable "test"
 Executable "interpreter"
   Path: src/
   MainIs: interpreter.ml
+  CompiledObject: best
+  BuildDepends: threads, core, ppx_deriving.std
+  Install: false
+
+
+Executable "test"
+  Path: src/
+  MainIs: tests.ml
   CompiledObject: best
   BuildDepends: threads, core, ppx_deriving.std
   Install: false

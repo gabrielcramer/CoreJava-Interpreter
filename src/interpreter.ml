@@ -361,9 +361,7 @@ let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("mya","add",["a"]
 let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("myc","add",["a"])) te prg )
 (* let _ = Utils.methodsOnce_exn classDecl *)
 
-let _ = Utils.goodInheritance (Class ("b", "a", [("f2",IntType)], [Method(IntType,"add",[("p1",IntType)],Value(IntV 3));Method(IntType,"minus",[("p1",IntType)],Value(IntV 3))])) prg
-(* let _ = print_endline (Syntax.show_program prg) *)
-(* let _ = Typechecker.typeCheckProgram prg *)
+
 (* Tests for interpreter*)
 (* let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )
    let _ = assert (IntV 22 = interpret (Sequence(VariableAssignment("a",Value(IntV 22)),Variable("a") )) prg )

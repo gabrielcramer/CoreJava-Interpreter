@@ -2,7 +2,11 @@ open Syntax
 open Core.Std
 open Exn2
 
-let raiseRuntimeError (msg : string) = raise(RuntimeError ("Error: " ^ msg))
+
+let stringOfLabel = function
+  | H -> "H"
+  | M _ -> "M"
+  | L -> "L"
 
 let stringOfType = function
   |  IntType -> "int"
@@ -12,6 +16,9 @@ let stringOfType = function
   | NullType -> "NullType"
   | LocType -> "LocType"
   | ObjectType(obj) -> obj
+
+let stringOfSecureType = function
+  | {typ;label} -> (stringOfType typ) ^ "label:" ^ stringOfLabel label
 
 let rec stringListOfIdTypList = function
   | []-> []
@@ -294,3 +301,22 @@ let rec substVariableName newName name exp = match exp with
   | MethodCall (var, mn, params) -> let substVar = (if var = name then newName else var) in
     let substParams = List.map params ~f:(fun p -> if p = name then newName else p) in MethodCall(substVar,mn,substParams)
   | Ret (v, e) -> exp (* TODO: Think twice about this case. Do we need to substitute also in this type of exp?*)
+  | _ ->  raise(RuntimeError ("Default case reached in Utils.createFieldEnv")) (*TODO better treat this case*)
+
+  let isSubLabel l1 l2 = match l1, l2 with
+    | H, H -> true
+    | H, _ -> false
+    | M _, L -> false
+    | M _, _ -> true
+    | L, _ -> true
+
+  let isSecureSubtype st1 st2 prog = match st1, st2 with
+    | {typ=t1;label=l1},{typ=t2;label=l2} -> (isSubLabel l1 l2) && (isSubtype t1 t2 prog)
+
+  let lubLabel l1 l2 = if isSubLabel l1 l2 then l2 else l1
+
+  let glbLabel l1 l2 = if isSubLabel l1 l2 then l1 else l2
+
+
+  let getSecureTypeField objType fn prog = Some({typ=IntType;label=L}) (*TODO properly implement this function*)
+  let labelOfClass objType prog = Some(L) (*TODO properly implement this function*)

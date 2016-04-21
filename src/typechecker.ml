@@ -58,6 +58,7 @@ and checkLastClass classList = match List.last classList with
     else
       raise (BadFoundedClassesError ("Error: Name of the last class has to be \"Main\"." ^ n))
 
+
 and wellTypedClass c prog = let Class(cn,_,_,methods) = c in
   let tenv = Environment.extend "this" (ObjectType cn) Environment.empty in
   List.iter methods (fun m -> if wellTypedMethod m tenv prog then () else raise(BadTypedMethod m))
@@ -188,3 +189,44 @@ and typeCheckMethodCallExp var mn params tenv prog = let varType = typeCheckVari
         Invalid_argument _ -> raiseStaticError "Number of passed parameters is not valid."
     else raiseStaticError (sprintf "Method `%s` is not defined inside" (Utils.stringOfType varType))
   else raiseStaticError ((Utils.stringOfType varType) ^ " not declared inside program.")
+
+
+let rec secureTypeCheckExp exp stenv hl prog = match exp with
+  | Value(v) -> {typ = IntType; label=L} (*TODO*)
+  | Variable(var) -> secureTypeCheckVariableExp var stenv
+  | ObjectField(var, field) -> secureTypeCheckObjectFieldExp var field stenv hl prog (*TODO*)
+  | VariableAssignment (var, exp)-> secureTypeCheckVariableAssignmentExp var exp stenv hl prog
+  | ObjectFieldAssignment((var, f), e) -> {typ = IntType; label=L} (*TODO*)
+  | Sequence(e1, e2) -> {typ = IntType; label=L} (*TODO*)
+  | BlockExpression(list, exp) -> {typ = IntType; label=L} (*TODO*)
+  | If (var, et, ee) -> secureTypeCheckIfExp var et ee stenv L prog
+  | Operation(e1, op, e2) -> {typ = IntType; label=L} (*TODO*)
+  | Negation(e) -> {typ = IntType; label=L} (*TODO*)
+  | New(cn, varList) -> {typ = IntType; label=L} (*TODO*)
+  | While(var, e) -> {typ = IntType; label=L} (*TODO*)
+  | Cast(cn, var) -> {typ = IntType; label=L} (*TODO*)
+  | InstanceOf(var, cn) -> {typ = IntType; label=L} (*TODO*)
+  | MethodCall(cn, mn, params) -> {typ = IntType; label=L} (*TODO*)
+  | Ret(v, exp) -> raiseStaticError ("Expression 'Ret' should not occur while type checking.")
+
+and secureTypeCheckVariableExp var stenv = if Environment.isIn var stenv then Environment.lookup var stenv else raiseUnboundVar var
+
+and secureTypeCheckObjectFieldExp var fn stenv hl prog = let varType = secureTypeCheckVariableExp var stenv in print_endline ("INTERN"^ Utils.stringOfSecureType varType); if Utils.isObjectType varType.typ then
+    let fTypeOption = Utils.getSecureTypeField varType.typ fn prog in if Option.is_some fTypeOption then let fType = Option.value_exn fTypeOption in
+      {fType with label= Utils.lubLabel varType.label fType.label}
+    else raiseStaticError ("Field " ^ fn ^ " not declared inside " ^ var)
+  else raiseStaticError ("Variable " ^ var ^ " is not an object." )
+
+
+
+and secureTypeCheckVariableAssignmentExp var exp stenv hl prog = let varType = secureTypeCheckVariableExp var stenv in
+  let expType = secureTypeCheckExp exp stenv hl prog in if Utils.isSecureSubtype expType varType prog then {typ=VoidType; label=hl}
+  else raiseStaticError ("Insecure information flow from " ^ (Utils.stringOfExp exp) ^ " to " ^ var)
+
+and secureTypeCheckIfExp var et ee stenv cl prog = let varType = secureTypeCheckVariableExp var stenv in if Utils.isSubtype varType.typ BoolType prog then
+    let ett = secureTypeCheckExp et stenv varType.label prog in let eet = secureTypeCheckExp et stenv varType.label prog in
+    if ett.label = eet.label then let lmt = Utils.leastMaxType ett.typ eet.typ prog in
+      match lmt with Some t -> {typ = t;label = ett.label}
+                   | None -> raiseStaticError ("Type " ^ (Utils.stringOfType ett.typ) ^ " is not compatible with type " ^ (Utils.stringOfType eet.typ))
+    else raiseStaticError ("Security level of " ^ (Utils.stringOfExp et) ^" is not equal to the security level of " ^ (Utils.stringOfExp ee))
+  else raiseStaticError ("Variable " ^ var ^ " has type " ^ (Utils.stringOfType varType.typ) ^ " but a variable was expected of type " ^ (Utils.stringOfType BoolType) )

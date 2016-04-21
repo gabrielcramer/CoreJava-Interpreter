@@ -14,6 +14,16 @@ and typ = IntType
         | ObjectType of id
   [@@deriving show]
 
+and secureType =
+  { typ:typ;
+    label: label
+  }
+    [@@deriving show]
+and label =   H
+          | M of int
+          | L
+  [@@deriving show]
+
 (** A method has a (type method, name method, list of method parameters, the body of the method) *)
 and methodDeclaration = Method of typ * id * ((id * typ) list) * exp
   [@@deriving show]
