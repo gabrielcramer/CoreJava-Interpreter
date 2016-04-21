@@ -5,13 +5,9 @@ class helloWorld extends object{
   #
   float test (int a1, bool b1, float c1) {
     #
-    if (b1) {
-      a = 3;
-    } else {
-      a = 2;
-    }
+    if (b1) (a)a else a = 2 * 3 +5;
     b = b1;
-    c = c1;
+    c = c1
   }
 }
 

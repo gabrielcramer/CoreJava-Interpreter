@@ -18,11 +18,11 @@
 %token NULL
 %token LEFT_BRACE
 %token RIGHT_BRACE
-%token LEFT_BRACK
-%token RIGHT_BRACK
+/*%token LEFT_BRACK*/
+/*%token RIGHT_BRACK*/
 %token OPARENT
 %token CPARENT
-%token COLON
+/*%token COLON*/
 %token SEMICOLON
 %token DOT
 %token COMMA
@@ -48,9 +48,13 @@
 %token INSTANCEOF
 %token EOF
 
-/*%left IMULTIPLY IDIVIDE
-%left IPLUS IMINUS*/
 
+%left EQUAL
+%right OR
+%right AND
+%left  LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
+%left IPLUS IMINUS FPLUS FMINUS
+%left IMULTIPLY IDIVIDE FMULTIPLY FDIVIDE
 %{ open Syntax %}
 %start <Syntax.program option> program
 %%
@@ -101,7 +105,7 @@ methodParameter: typeD ID {($2, $1)}
 ;
 
 blockExpression:
-| LEFT_BRACE vars = varDeclList HASHTAG e = expression RIGHT_BRACE {BlockExpression(vars, e) }
+| LEFT_BRACE vars = varDeclList HASHTAG e = seqExpression RIGHT_BRACE {BlockExpression(vars, e) }
 ;
 varDeclList:
 | (* empty *) {[]}
@@ -110,8 +114,6 @@ varDeclList:
 
 varDeclListAux:
 | varDecl {[$1]}
-| varDecl varDeclListAux {$1 :: $2}
-;
 
 varDecl:
 | TINT ID SEMICOLON  {($2, IntType)}
@@ -123,22 +125,19 @@ varDecl:
 
 /*Add semicolon at the end of some expressions*/
 expression:
-/*TODO: ADD LocalVariableDeclaration*/
 | INT       {Value(IntV($1))}
 | FLOAT     {Value(FloatV($1))}
 | BOOL      {Value(BoolV($1))}
+| NULL      {Value(NullV)}
 | ID        {Variable($1)}
 
-/* instance:name */
-| ID COLON ID {ObjectField($1, $3)}
-/* instance:name = "hehe" */
-| ID COLON ID EQUAL expression SEMICOLON {ObjectFieldAssignment(($1, $3), $5)}
 
-| ID; EQUAL; expression; SEMICOLON {VariableAssignment($1, $3)}
-| e1 = expression e2 = expression {Sequence(e1, e2)}
-| IF OPARENT guard = ID CPARENT LEFT_BRACE thenExp = expression RIGHT_BRACE
-  ELSE LEFT_BRACE elseExp = expression RIGHT_BRACE {If(guard, thenExp, elseExp)}
-| exp1 = expression op = binaryOperator exp2 = expression {Operation(exp1, op, exp2)}
+| ID DOT ID {ObjectField($1, $3)}
+| ID DOT ID EQUAL expression SEMICOLON {ObjectFieldAssignment(($1, $3), $5)}
+
+| ID EQUAL expression {VariableAssignment($1, $3)}
+| IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE  elseExp = groupExpression {If(guard, thenExp, elseExp)}
+| operationExpression {$1}
 
 | OPARENT NOT expression CPARENT {Negation($3)}
 | NEW ID OPARENT argsList CPARENT {New($2, $4)}
@@ -150,21 +149,37 @@ expression:
 /*| blockExpression {$1}*/
 ;
 
-binaryOperator:
-| IPLUS         {IPlus}
-| IMINUS        {IMinus}
-| IMULTIPLY     {IMultiply}
-| IDIVIDE       {IDivide}
-| FPLUS         {FPlus}
-| FMINUS        {FMinus}
-| FMULTIPLY     {FMultiply}
-| EQ_EQUAL      {EqEqual}
-| GREATER_EQUAL {GreaterEqual}
-| GREATER       {Greater}
-| NOT_EQUAL     {NotEqual}
-| AND           {And}
-| OR            {Or}
+groupExpression:
+| e = expression { e }
+| OPARENT e = seqExpression CPARENT { e }
 ;
+
+operationExpression:
+| exp1 = expression IPLUS exp2 = expression {Operation(exp1, IPlus, exp2)}
+| exp1 = expression FPLUS exp2 = expression {Operation(exp1, FPlus, exp2)}
+| exp1 = expression IMINUS exp2 = expression {Operation(exp1, IMinus, exp2)}
+| exp1 = expression FMINUS exp2 = expression {Operation(exp1, FMinus, exp2)}
+| exp1 = expression IMULTIPLY exp2 = expression {Operation(exp1, IMultiply, exp2)}
+| exp1 = expression FMULTIPLY exp2 = expression {Operation(exp1, FMultiply, exp2)}
+| exp1 = expression IDIVIDE exp2 = expression {Operation(exp1, IDivide, exp2)}
+| exp1 = expression FDIVIDE exp2 = expression {Operation(exp1, FDivide, exp2)}
+| exp1 = expression EQ_EQUAL exp2 = expression {Operation(exp1, EqEqual, exp2)}
+| exp1 = expression GREATER_EQUAL exp2 = expression {Operation(exp1, GreaterEqual, exp2)}
+| exp1 = expression GREATER exp2 = expression {Operation(exp1, Greater, exp2)}
+| exp1 = expression LESS exp2 = expression {Operation(exp1, Less, exp2)}
+| exp1 = expression LESS_EQUAL exp2 = expression {Operation(exp1, LessEqual, exp2)}
+| exp1 = expression NOT_EQUAL exp2 = expression {Operation(exp1, NotEqual, exp2)}
+| exp1 = expression AND exp2 = expression {Operation(exp1, And, exp2)}
+| exp1 = expression OR exp2 = expression {Operation(exp1, Or, exp2)}
+
+;
+
+seqExpression:
+| expression {$1}
+| expression SEMICOLON  {$1}
+| e1 = expression SEMICOLON e2 = seqExpression {Sequence(e1, e2)}
+;
+
 
 argsList:
 | /*empty*/ {[]}

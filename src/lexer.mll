@@ -54,11 +54,12 @@ rule read = parse
 
      | '{'      { LEFT_BRACE }
      | '}'      { RIGHT_BRACE }
-     | '['      { LEFT_BRACK }
+     (*| '['      { LEFT_BRACK }
      | ']'      { RIGHT_BRACK }
+     | ':'      { COLON }*)
      | '('      { OPARENT }
      | ')'      { CPARENT }
-     | ':'      { COLON }
+
      | ','      { COMMA }
      | ';'      { SEMICOLON }
      | '#'	    { HASHTAG }
