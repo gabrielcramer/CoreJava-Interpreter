@@ -16,7 +16,7 @@ let rec typeCheckExp exp tenv prog = match exp  with
   | While(var, e) -> typeCheckWhileExp var e tenv prog
   | Cast(cn, var) -> typeCheckCastExp cn var tenv prog
   | InstanceOf(var, cn) -> typeCheckInstanceOfExp var cn tenv prog
-  | MethodCall(cn, mn, params) -> IntType (*TODO*)
+  | MethodCall(cn, mn, params) -> typeCheckMethodCallExp cn mn params tenv prog
   | Ret(v, exp) -> Utils.rerr ("Expression 'Ret' should not occur while type checking.")
 
 and typeCheckValueExp = function
@@ -91,3 +91,18 @@ and typeCheckNewExp cn varList tenv prog = let cnType = (typeCheckClassName cn p
 and typeCheckWhileExp var e tenv prog =  let varType =  (typeCheckVariableExp var tenv) in
   if Utils.isSubtype varType BoolType prog then let _ = (typeCheckExp e tenv prog) in VoidType
   else Utils.raiseDifferentTypeExpErr (Variable var) varType BoolType
+
+and typeCheckMethodCallExp var mn params tenv prog = let varType = typeCheckVariableExp var tenv in
+  if Utils.isTypeDeclared varType prog then let methodDeclO =  Utils.getMethodDefinition varType mn prog in
+    if Option.is_some methodDeclO then let Method(rt,_,idTypLst,_) = Option.value_exn methodDeclO in
+      let paramTypes = List.map params (fun x -> typeCheckVariableExp x tenv)  in try let validParams=
+                                                                                        List.for_all2_exn paramTypes idTypLst (fun paramType-> function |(_,typ) -> Utils.isSubtype paramType typ prog ) in
+        if validParams then rt else Utils.rerr "Types of the parameters are not valid." with Invalid_argument _ ->
+        Utils.rerr "Number of passed parameters is not valid."
+    else Utils.rerr ("Method " ^ mn ^ " is not defined inside " ^ Utils.stringOfType varType)
+  else Utils.rerr ((Utils.stringOfType varType) ^ " not declared inside program.")
+
+
+let methodsOnce = function Class(_,_,_,methods) -> Utils.eachElementOnce methods
+
+let fieldsOnce = function Class(_,_,fields,_) -> Utils.eachElementOnce fields

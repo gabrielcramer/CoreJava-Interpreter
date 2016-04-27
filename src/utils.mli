@@ -2,6 +2,7 @@ exception RuntimeError of string
 val getTypeVar: Syntax.id -> Syntax.typeValue Environment.t -> Syntax.typ
 val getTypeVal: Syntax.value -> Syntax.typ
 val getTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.typ option
+val getMethodDefinition: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.methodDeclaration option
 val isSubtype: Syntax.typ -> Syntax.typ -> Syntax.program -> bool
 
 val leastMaxType: Syntax.typ -> Syntax.typ -> Syntax.program -> Syntax.typ option
@@ -14,6 +15,9 @@ val isCompOperator: Syntax.binaryOperator -> bool
 val isBoolOperator: Syntax.binaryOperator -> bool
 val isObjectType: Syntax.typ -> bool
 val definedInProg: Syntax.id -> Syntax.program -> bool
+val isTypeDeclared: Syntax.typ -> Syntax.program -> bool
+val eachElementOnce: 'a list -> bool
+(* val isMethodDirectlyDeclared: Syntax.id *)
 val firstUnboundVariable: Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.id option
 val getFieldList: Syntax.typ -> Syntax.program-> (Syntax.id * Syntax.typ) list
 val getTypeList: Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.typ list

@@ -146,7 +146,7 @@ let interpret (e : exp) (program : program) : value =
   let initialState = {heap = Heap.empty; env = initialEnv; e = e; prog = program} in
   multistep initialState
 
-let prg = Program( [Class ("a", "Object", [("f1",IntType)], []);
+let prg = Program( [Class ("a", "Object", [("f1",IntType)], [Method(IntType,"add",[("p1",IntType)],Value(IntV 3))]);
                     Class ("b", "a", [("f2",IntType)], []);Class ("c", "b", [], []);Class ("d", "Object", [], [])] )
 (* Tests for Typechecker *)
 let te = (Environment.union [("a",IntType);("cond",BoolType);("mya",ObjectType("a"));("myc",ObjectType("c"));("myd",ObjectType("d"))] Environment.empty)
@@ -174,7 +174,8 @@ let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (Cast("Object","m
 let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (New("a",["a"])) te prg)
 let _ = assert (ObjectType "b" = Typechecker.typeCheckExp (New("b",["a";"a"])) te prg)
 let _ = assert (VoidType = Typechecker.typeCheckExp (While ("cond",(Value(IntV 3))) ) te prg)
-
+let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("mya","add",["a"])) te prg )
+let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("myc","add",["a"])) te prg )
 
 (* Tests for interpreter*)
 (* let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )

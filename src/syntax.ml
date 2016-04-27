@@ -13,6 +13,7 @@ and typ = IntType
         | ObjectType of id
 
 and methodDeclaration = Method of typ * id * ((id * typ) list) * exp
+                      (* TODO: is MainMethod really necessary? *)
                       | MainMethod of typ * ((id *typ) list) * exp
 
 and exp = Value of value
@@ -20,7 +21,6 @@ and exp = Value of value
         | ObjectField of id * id
         | VariableAssignment of id * exp
         | ObjectFieldAssignment of (id * id) * exp
-        (* | LocalVariableDeclaration of typ * id * exp *)
         | BlockExpression of ((id * typ) list) * exp
         | Sequence of exp * exp
         | If of id * exp * exp

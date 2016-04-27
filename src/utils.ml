@@ -101,6 +101,7 @@ let getTypeVal = function
   | VoidV -> VoidType
   | LocV _ -> LocType
   | NullV -> NullType
+
 let getTypeField objType fn prog = match objType with
   | ObjectType(cn) -> (let fieldList = getFieldList objType prog in
                        try let t = List.assoc fn fieldList in Some(t)  with Not_found -> None)
@@ -121,12 +122,33 @@ let isValue = function
 let isObjectType = function
   | ObjectType _ -> true
   | _ -> false
+
 let rec definedInProgAux (id : Syntax.id) (classList : Syntax.classDeclaration list) : bool = match classList with
   | Class(c, _, _, _) :: tl -> if c = id then true else definedInProgAux id tl
   | [] -> false
 
 let definedInProg id = function Program classList -> if id = "Object" then true else definedInProgAux id classList
 
+let isTypeDeclared t prog = match t with
+  |ObjectType cn -> definedInProg cn prog
+  |_ -> true
+
+let getMethods obj prog = match prog with
+  |Program classList -> (match obj with
+      |ObjectType cn -> (try let Class(n,pn,_,methods) = List.find
+                                 (function
+                                   |Class(c,_,_,_) -> if cn = c then true else false
+                                 ) classList in methods with Not_found -> (rerr ((stringOfType obj) ^ " is not defined inside program.")))
+      | _ -> [])
+
+let rec getMethodDefinition obj mn prog = match obj with
+  | ObjectType cn -> (if cn = "Object" then None else let methods = (getMethods obj prog) in
+                        try let methodDecl = (List.find
+                                                (function
+                                                  |Method(_,n,_,_) -> if n = mn then true else false
+                                                  |MainMethod _ -> if mn="main" then true else false
+                                                ) methods) in Some(methodDecl) with Not_found -> (getMethodDefinition (getParent obj prog) mn prog))
+  | _ -> None
 
 let rec firstUnboundVariable params env = match params with
   | id :: tl -> if Environment.isIn id env then firstUnboundVariable tl env else Some(id)
@@ -169,6 +191,9 @@ let isIntOperator = function IPlus|IMinus|IMultiply|IDivide  -> true | _ -> fals
 let isFloatOperator = function FPlus|FMinus|FMultiply|FDivide -> true | _ -> false
 let isCompOperator = function Less| LessEqual| EqEqual| GreaterEqual| Greater| NotEqual -> true | _ -> false
 let isBoolOperator = function And|Or -> true | _ -> false
+
+let eachElementOnce l = List.for_all (fun x-> let xList = List.filter (fun y -> x = y) l in
+if List.length xList = 1 then true else false) l
 
 let raiseDifferentTypeExpErr exp expectedType actualType = raise(RuntimeError ("Error 5: Expression " ^ (stringOfExp exp) ^
                                                                                "has type " ^ (stringOfType actualType) ^ " but an expression was expected of type " ^ (stringOfType expectedType)) )
