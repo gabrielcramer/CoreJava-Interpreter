@@ -4,3 +4,4 @@ B _build/src/
 B src/_build/
 PKG core_kernel
 PKG core
+PKG ppx_deriving.std

@@ -11,14 +11,14 @@ Plugins: META (0.4), DevFiles (0.4)
 
 Executable "test"
   Path: src/
-  MainIs: test.ml
+  MainIs: jexp.ml
   CompiledObject: best
-  BuildDepends: threads, core
+  BuildDepends: threads, core, ppx_deriving.std
   Install: false
 
 Executable "interpreter"
   Path: src/
   MainIs: interpreter.ml
   CompiledObject: best
-  BuildDepends: threads, core
+  BuildDepends: threads, core, ppx_deriving.std
   Install: false

@@ -1,9 +1,9 @@
 type program = Program of (classDeclaration list)
-
+  [@@deriving show]
 and classDeclaration = Class of id * id * ((id * typ) list) * (methodDeclaration list)
-
+  [@@deriving show]
 and fieldDeclaration = Field of typ * id
-
+  [@@deriving show]
 and typ = IntType
         | FloatType
         | BoolType
@@ -11,11 +11,9 @@ and typ = IntType
         | NullType
         | LocType
         | ObjectType of id
-
+  [@@deriving show]
 and methodDeclaration = Method of typ * id * ((id * typ) list) * exp
-                      (* TODO: is MainMethod really necessary? *)
-                      | MainMethod of typ * ((id *typ) list) * exp
-
+  [@@deriving show]
 and exp = Value of value
         | Variable of id
         | ObjectField of id * id
@@ -32,21 +30,23 @@ and exp = Value of value
         | Cast of id * id
         | InstanceOf of id * id
         | Ret of id * exp
-(* and variableDeclaration = VariableDeclaration of typ * id *)
-(* and blkExp = BlockExpression of *)
-(* | BnVar of exp *)
-
+  (* and variableDeclaration = VariableDeclaration of typ * id *)
+  (* and blkExp = BlockExpression of *)
+  (* | BnVar of exp *)
+  [@@deriving show]
 and value = NullV
           | IntV of int
           | FloatV of float
           | BoolV of bool
           | VoidV
           | LocV of int
-
+  [@@deriving show]
 and typeValue =
   {	typ: typ;
     value: value
   }
+
+  [@@deriving show]
 and binaryOperator = IPlus
                    | IMinus
                    | IMultiply
@@ -63,5 +63,6 @@ and binaryOperator = IPlus
                    | NotEqual
                    | And
                    | Or
-
-and id = string;;
+  [@@deriving show]
+and id = string
+  [@@deriving show]

@@ -30,28 +30,7 @@ rule read = parse
      | white    { read lexbuf }
      | newline  { next_line lexbuf; read lexbuf }
 
-
-     | int   	  { INT(int_of_string (Lexing.lexeme lexbuf)) }
-     | float 	  { FLOAT(float_of_string (Lexing.lexeme lexbuf)) }
-     | "true"  	{ BOOL(true) }
-     | "false"  { BOOL(false) }
-     | "null"   { NULL }
-
-     | "class"      { CLASS }
-     | "extends"    { EXTENDS }
-     | "while" 	    { WHILE }
-     | "new" 	      { NEW }
-     | "float" 	    { TFLOAT }
-     | "int"   	    { TINT }
-     | "bool" 	    { TBOOL}
-     | "void"       { TVOID}
-     | "if"   	    { IF }
-     | "else" 	    { ELSE }
-     | "instanceof" { INSTANCEOF }
-     | "main"       { MAIN }
-
-     | id 	    { ID(Lexing.lexeme lexbuf) }
-
+     | '.'      { DOT }
      | '{'      { LEFT_BRACE }
      | '}'      { RIGHT_BRACE }
      (*| '['      { LEFT_BRACK }
@@ -85,6 +64,27 @@ rule read = parse
      | '>' 	  { GREATER }
      | "!=" 	{ NOT_EQUAL }
      | '=' 	  { EQUAL }
+
+     | int   	  { INT(int_of_string (Lexing.lexeme lexbuf)) }
+     | float 	  { FLOAT(float_of_string (Lexing.lexeme lexbuf)) }
+     | "true"  	{ BOOL(true) }
+     | "false"  { BOOL(false) }
+     | "null"   { NULL }
+
+     | "class"      { CLASS }
+     | "extends"    { EXTENDS }
+     | "while" 	    { WHILE }
+     | "new" 	      { NEW }
+     | "float" 	    { TFLOAT }
+     | "int"   	    { TINT }
+     | "bool" 	    { TBOOL}
+     | "void"       { TVOID}
+     | "if"   	    { IF }
+     | "else" 	    { ELSE }
+     | "instanceof" { INSTANCEOF }
+     | id 	    { ID(Lexing.lexeme lexbuf) }
+
+
 
      | _ 	{ raise (SyntaxError  ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
      | eof 	{ EOF }

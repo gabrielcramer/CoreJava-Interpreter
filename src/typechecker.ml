@@ -1,7 +1,61 @@
 open Syntax
 open Core.Std
+open StringTupleSet
+open Exn2
 
-let rec typeCheckExp exp tenv prog = match exp  with
+let rec typeCheckProgram program =
+  try wellFoundedClasses program;
+    let Program classList = program in
+    (List.iter classList (fun x -> Utils.methodsOnce_exn x));
+    (List.iter classList (fun x -> Utils.fieldsOnce_exn x));
+    (List.iter classList (fun x -> Utils.goodInheritance x program));
+    List.iter classList (fun x -> wellTypedClass x program) with
+  | DuplicateField (fn, tp) -> raise (StaticError ("Field " ^ fn ^ " is declared more than once"))
+  | DuplicateMethod Method(mt,mn,_,_) -> raise (StaticError ("Method " ^ mn ^ " is declared more than once"))
+  | BadMethodOverriding Method(mt,mn,_,_) -> raise (StaticError ("Overriding method  " ^ mn ^ " is not sound"))
+  | BadTypedMethod Method(mt,mn,_,_) -> raise (StaticError ("Method " ^ mn ^ " is not well typed."))
+  | BadFoundedClassesError msg -> raise (StaticError msg)
+
+
+and wellFoundedClasses prog = let Program classList = prog in
+  let ir = List.fold classList ~init:StringTupleSet.empty
+      ~f:(fun acc cl ->let Class(c,p,_,_) = cl in StringTupleSet.add acc (c,p)) in
+  let id = List.fold classList ~init:StringTupleSet.empty
+      ~f:(fun acc cl -> let Class(c,_,_,_) = cl in StringTupleSet.add acc (c,c)) in
+  let ir = transitiveClosure ir in let inter = StringTupleSet.inter ir id in
+  if (StringTupleSet.length inter) = 0 then let classNames = List.map classList ~f:(function Class(c,_,_,_)-> c) in
+    let dup = List.find_a_dup classNames in match dup with
+    | None -> checkLastClass classList
+    | Some d -> raise (BadFoundedClassesError ("Error: Redefinition of class " ^ d))
+  else raise (BadFoundedClassesError ("Error: There is a cycle in the class hierarchy"))
+
+and transitiveClosure ir = let newIR = StringTupleSet.fold ir ~init:ir ~f:(fun acc pair ->
+    match pair with | (cn1,cn2) ->
+      let newPairs = (StringTupleSet.fold ir ~init:StringTupleSet.empty ~f:(fun acc2 pair ->
+          match pair with (cn3,cn4) -> if cn2 = cn3
+            then StringTupleSet.add acc2 (cn1,cn4) else acc2)) in StringTupleSet.union newPairs acc) in
+  if StringTupleSet.equal ir newIR then newIR else transitiveClosure newIR
+and checkLastClass classList = match List.last classList with
+  | None -> ()
+  | Some Class(n,_,_,methods) -> if n = "Main" then
+      begin match List.last methods with
+        | None -> raise (BadFoundedClassesError "Error: The main class has no methods.")
+        | Some Method(mt,mn,args,e) -> if mn = "main" then if mt = VoidType then ()
+            else raise (BadFoundedClassesError ("Error: The main method has " ^ Utils.stringOfType mt
+                                                      ^ " return type but was expected of return type " ^ Utils.stringOfType VoidType))
+          else raise (BadFoundedClassesError "Error: There is no main method inside Main class.")
+      end
+    else raise (BadFoundedClassesError ("Error: Name of the last class has to be \"Main\"." ^ n))
+
+and wellTypedClass c prog = let Class(cn,_,_,methods) = c in
+  let tenv = Environment.extend "this" (ObjectType cn) Environment.empty in
+  List.iter methods (fun m-> if wellTypedMethod m tenv prog then () else raise(BadTypedMethod m) )
+
+and wellTypedMethod m tenv prog =  let Method(mt,_,args,e) = m in
+  let newTE = (Environment.union args tenv) in let et = typeCheckExp e newTE prog in
+  if Utils.isSubtype et mt prog then true else false
+
+and typeCheckExp exp tenv prog = match exp  with
   | Value(v) -> typeCheckValueExp v
   | Variable(id) -> typeCheckVariableExp id tenv
   | ObjectField(var, field) -> typeCheckObjectFieldExp var field tenv prog
@@ -17,7 +71,7 @@ let rec typeCheckExp exp tenv prog = match exp  with
   | Cast(cn, var) -> typeCheckCastExp cn var tenv prog
   | InstanceOf(var, cn) -> typeCheckInstanceOfExp var cn tenv prog
   | MethodCall(cn, mn, params) -> typeCheckMethodCallExp cn mn params tenv prog
-  | Ret(v, exp) -> Utils.rerr ("Expression 'Ret' should not occur while type checking.")
+  | Ret(v, exp) -> raiseStaticError ("Expression 'Ret' should not occur while type checking.")
 
 and typeCheckValueExp = function
   | IntV _ -> IntType
@@ -27,25 +81,25 @@ and typeCheckValueExp = function
   | NullV -> NullType
   | LocV _ -> LocType
 
-and typeCheckClassName cn prog = if Utils.definedInProg cn prog then (ObjectType cn)
-  else Utils.rerr ("Unbound class " ^ cn)
+and typeCheckClassName cn prog = if Utils.isDefinedInProg cn prog then (ObjectType cn)
+  else raiseStaticError ("Unbound class " ^ cn)
 
-and typeCheckVariableExp id tenv = if Environment.isIn id tenv then Environment.lookup id tenv else Raise_error.unboundVar id
+and typeCheckVariableExp id tenv = if Environment.isIn id tenv then Environment.lookup id tenv else raiseUnboundVar id
 
 and typeCheckObjectFieldExp var field tenv prog = let varType = typeCheckVariableExp var tenv in
   if Utils.isObjectType varType then let fieldType = Utils.getTypeField varType field prog  in
     if Option.is_some fieldType then Option.value_exn fieldType
-    else Utils.rerr ("Field " ^ field ^ " not declared inside " ^ var)
-  else Utils.rerr("Variable " ^ var ^ " is not an object." )
+    else raiseStaticError ("Field " ^ field ^ " not declared inside " ^ var)
+  else raiseStaticError("Variable " ^ var ^ " is not an object." )
 
 
 and typeCheckVariableAssignmentExp id exp tenv prog = let varType = typeCheckVariableExp id tenv in
   let expType = typeCheckExp exp tenv prog in if Utils.isSubtype expType varType prog then VoidType
-  else Utils.rerr ("Type of " ^ id ^ "(" ^ (Utils.stringOfType varType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
+  else raiseStaticError ("Type of " ^ id ^ "(" ^ (Utils.stringOfType varType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
 
 and typeCheckObjectFieldAssignmentExp var field exp tenv prog = let fieldType = typeCheckObjectFieldExp var field tenv prog in
   let expType = typeCheckExp exp tenv prog in if Utils.isSubtype expType fieldType prog then VoidType
-  else Utils.rerr ("Type of " ^ var ^ "." ^ field ^ "(" ^ (Utils.stringOfType fieldType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
+  else raiseStaticError ("Type of " ^ var ^ "." ^ field ^ "(" ^ (Utils.stringOfType fieldType) ^ ") is incompatible with " ^ (Utils.stringOfType expType))
 
 and typeCheckSequenceExp e1 e2 tenv prog = let _ = typeCheckExp e1 tenv prog in typeCheckExp e2 tenv prog
 
@@ -54,8 +108,8 @@ and typeCheckBlockExp list exp tenv prog =  let newTE = (Environment.union list 
 and typeCheckIfExp var et ee tenv prog  =  let varType =  typeCheckVariableExp var tenv in if Utils.isSubtype varType BoolType prog then
     let ett = typeCheckExp et tenv prog in let eet = typeCheckExp ee tenv prog in let lmt = Utils.leastMaxType ett eet prog in
     match lmt with Some t -> t
-                 | None -> Utils.rerr ("Type " ^ (Utils.stringOfType ett) ^ " is not compatible with type " ^ (Utils.stringOfType eet))
-  else Utils.rerr ("Variable " ^ var ^ " has type " ^ (Utils.stringOfType varType) ^ " but a variable was expected of type " ^ (Utils.stringOfType BoolType) )
+                 | None -> raiseStaticError ("Type " ^ (Utils.stringOfType ett) ^ " is not compatible with type " ^ (Utils.stringOfType eet))
+  else raiseStaticError ("Variable " ^ var ^ " has type " ^ (Utils.stringOfType varType) ^ " but a variable was expected of type " ^ (Utils.stringOfType BoolType) )
 
 and typeCheckOperationExp e1 e2 op tenv prog = if Utils.isIntOperator op then typeCheckSpecOperation e1 e2 IntType tenv prog
   else if Utils.isFloatOperator op then typeCheckSpecOperation e1 e2 FloatType tenv prog
@@ -64,21 +118,21 @@ and typeCheckOperationExp e1 e2 op tenv prog = if Utils.isIntOperator op then ty
 
 and typeCheckSpecOperation e1 e2 typ tenv prog = let e1t = (typeCheckExp e1 tenv prog) in
   if Utils.isSubtype e1t typ prog then let e2t = (typeCheckExp e2 tenv prog) in if Utils.isSubtype e2t typ prog then
-      typ else Utils.raiseDifferentTypeExpErr e2 e2t typ
-  else Utils.raiseDifferentTypeExpErr e1 e1t typ
+      typ else raiseDifferentTypeExpErr e2 [e2t] typ
+  else raiseDifferentTypeExpErr e1 [e1t] typ
 
 (* TODO: reconsider type checking for this case *)
 and typeCheckCompOperation e1 e2 tenv prog = let e1t = (typeCheckExp e1 tenv prog) in
   let e2t = (typeCheckExp e2 tenv prog) in if ((Utils.isSubtype e1t e2t prog) && (Utils.isSubtype e2t e1t prog)
                                                && (not (Utils.isObjectType e1t)) && (not (Utils.isObjectType e2t) )) then BoolType
-  else Utils.rerr ("Can not compare an expression of type "^ (Utils.stringOfType e1t) ^"with an expression of type " ^ (Utils.stringOfType e2t))
+  else raiseStaticError ("Can not compare an expression of type "^ (Utils.stringOfType e1t) ^"with an expression of type " ^ (Utils.stringOfType e2t))
 
 and typeCheckNegationExp e tenv prog = let et = (typeCheckExp e tenv prog) in if Utils.isSubtype et BoolType prog then BoolType
-  else Utils.raiseDifferentTypeExpErr e et BoolType
+  else raiseDifferentTypeExpErr e [et] BoolType
 
 and typeCheckCastExp cn var tenv prog = let cnType = (typeCheckClassName cn prog) in let varType = (typeCheckVariableExp var tenv) in
   if ((Utils.isSubtype cnType varType prog) || (Utils.isSubtype varType cnType prog ) ) then cnType
-  else Utils.rerr ("Can not cast a variable of type " ^ (Utils.stringOfType varType) ^ " to type " ^ (Utils.stringOfType cnType) )
+  else raiseStaticError ("Can not cast variable "^ var ^" of type " ^ (Utils.stringOfType varType) ^ " to type " ^ (Utils.stringOfType cnType) )
 
 and typeCheckInstanceOfExp var cn tenv prog = let _ = (typeCheckClassName cn prog) in
   let _ = (typeCheckVariableExp var tenv) in BoolType
@@ -86,23 +140,19 @@ and typeCheckInstanceOfExp var cn tenv prog = let _ = (typeCheckClassName cn pro
 
 and typeCheckNewExp cn varList tenv prog = let cnType = (typeCheckClassName cn prog) in
   let fieldList = Utils.getFieldList cnType prog in let varTypes = (List.map varList (fun var -> typeCheckVariableExp var tenv)) in
-  try if List.for_all2_exn fieldList varTypes (fun f vt -> match f with (fn,ft) -> (Utils.isSubtype vt ft prog)) then cnType else raise (Invalid_argument ".") with Invalid_argument _ ->  Utils.rerr ("Number of arguments is not equal with the number of fields")
+  try if List.for_all2_exn fieldList varTypes (fun f vt -> match f with (fn,ft) -> (Utils.isSubtype vt ft prog)) then cnType else raise (Invalid_argument ".") with Invalid_argument _ ->  raiseStaticError ("Number of arguments is not equal with the number of fields")
 
 and typeCheckWhileExp var e tenv prog =  let varType =  (typeCheckVariableExp var tenv) in
   if Utils.isSubtype varType BoolType prog then let _ = (typeCheckExp e tenv prog) in VoidType
-  else Utils.raiseDifferentTypeExpErr (Variable var) varType BoolType
+  else raiseDifferentTypeExpErr (Variable var) [varType] BoolType
 
 and typeCheckMethodCallExp var mn params tenv prog = let varType = typeCheckVariableExp var tenv in
-  if Utils.isTypeDeclared varType prog then let methodDeclO =  Utils.getMethodDefinition varType mn prog in
-    if Option.is_some methodDeclO then let Method(rt,_,idTypLst,_) = Option.value_exn methodDeclO in
-      let paramTypes = List.map params (fun x -> typeCheckVariableExp x tenv)  in try let validParams=
-                                                                                        List.for_all2_exn paramTypes idTypLst (fun paramType-> function |(_,typ) -> Utils.isSubtype paramType typ prog ) in
-        if validParams then rt else Utils.rerr "Types of the parameters are not valid." with Invalid_argument _ ->
-        Utils.rerr "Number of passed parameters is not valid."
-    else Utils.rerr ("Method " ^ mn ^ " is not defined inside " ^ Utils.stringOfType varType)
-  else Utils.rerr ((Utils.stringOfType varType) ^ " not declared inside program.")
-
-
-let methodsOnce = function Class(_,_,_,methods) -> Utils.eachElementOnce methods
-
-let fieldsOnce = function Class(_,_,fields,_) -> Utils.eachElementOnce fields
+  if Utils.isTypeDeclared varType prog then let methodDecl =  Utils.getMethodDefinition varType mn prog in
+    if Option.is_some methodDecl then let Method(rt,_,idTypLst,_) = Option.value_exn methodDecl in
+      let paramTypes = List.map params (fun x -> typeCheckVariableExp x tenv)  in
+      try let validParams = List.for_all2_exn paramTypes idTypLst
+              (fun paramType-> function |(_,typ) -> Utils.isSubtype paramType typ prog ) in
+        if validParams then rt else raiseStaticError "Types of the parameters are not valid." with Invalid_argument _ ->
+        raiseStaticError "Number of passed parameters is not valid."
+    else raiseStaticError ("Method " ^ mn ^ " is not defined inside " ^ Utils.stringOfType varType)
+  else raiseStaticError ((Utils.stringOfType varType) ^ " not declared inside program.")

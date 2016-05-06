@@ -89,7 +89,6 @@ methodList:
 
 
 methodDeclaration:
-| typeD MAIN OPARENT methodParameterList CPARENT be = blockExpression {MainMethod($1, $4, be)}
 | typeD ID OPARENT methodParameterList CPARENT be = blockExpression   {Method($1, $2, $4, be)}
 ;
 methodParameterList:
@@ -114,6 +113,7 @@ varDeclList:
 
 varDeclListAux:
 | varDecl {[$1]}
+| varDecl varDeclListAux { $1 :: $2}
 
 varDecl:
 | TINT ID SEMICOLON  {($2, IntType)}
@@ -133,7 +133,7 @@ expression:
 
 
 | ID DOT ID {ObjectField($1, $3)}
-| ID DOT ID EQUAL expression SEMICOLON {ObjectFieldAssignment(($1, $3), $5)}
+| ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
 
 | ID EQUAL expression {VariableAssignment($1, $3)}
 | IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE  elseExp = groupExpression {If(guard, thenExp, elseExp)}
