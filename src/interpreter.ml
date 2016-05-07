@@ -116,7 +116,7 @@ and stepCompareOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (state : st
         let result = applyOp v1 v2 op in  {state with e = Value result}
       else raiseDifferentTypeExpErr e1 [IntType;FloatType] val1Type
     else raiseRuntimeError ("Can not compare an expression " ^ (Utils.stringOfExp e1) ^ " of type "^ (Utils.stringOfType val1Type) ^
-                     "with an expression " ^(Utils.stringOfExp e2) ^ " of type " ^ (Utils.stringOfType val2Type))
+                            "with an expression " ^(Utils.stringOfExp e2) ^ " of type " ^ (Utils.stringOfType val2Type))
 
   | Value v1, e2 -> let val1Type = Utils.getTypeOfVal v1 in if (val1Type = IntType || val1Type = FloatType)  then
       let ns = (step {state with e = e2}) in {ns with e = Operation(e1,op,ns.e)}
@@ -246,8 +246,8 @@ and applyOp (e1 : value) (e2 : value) (op : binaryOperator) : value = match op w
 
 let rec multistep (state : state) : value =
   if !stepCounter mod 10 = 0 then begin
-  print_endline ((Utils.stringOfEnv state.env));
-  print_endline ((Syntax.show_exp state.e))
+    print_endline ((Utils.stringOfEnv state.env));
+    print_endline ((Syntax.show_exp state.e))
   end
   else ();
   stepCounter := !stepCounter + 1;
@@ -338,14 +338,14 @@ let _ = Utils.goodInheritance (Class ("b", "a", [("f2",IntType)], [Method(IntTyp
    let _ = assert (IntV 3 = interpret (Sequence(VariableAssignment("myb", New("b", ["a";"a"])), ObjectField("myb", "f1"))) prg)
    let _ = assert (IntV 3 = interpret (Variable "a") prg ) *)
 (* let _ = assert (IntV 10 = interpret(Sequence(ObjectFieldAssignment(("mya","f1"),Value(IntV 10)),ObjectField ("mya", "f1") )) prg )
-let _ = let v = interpret(Sequence(ObjectFieldAssignment(("mya","f1"),Value(IntV 10)),ObjectField ("mya", "f1") )) prg  in print_endline(Utils.stringOfValue v)
-let _ = let v = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])),
+   let _ = let v = interpret(Sequence(ObjectFieldAssignment(("mya","f1"),Value(IntV 10)),ObjectField ("mya", "f1") )) prg  in print_endline(Utils.stringOfValue v)
+   let _ = let v = interpret (Sequence(VariableAssignment("mya", New("a", ["a"])),
                                     Sequence(VariableAssignment("mya", New("a", ["a"])), Variable("mya")))) prg in print_endline(Utils.stringOfValue v)
-let _ = assert (IntV 10 = interpret(Operation((Value (IntV 5)),IPlus,(Value (IntV 5))   )) prg )
-let _ = assert (BoolV true = interpret(Operation((Value (BoolV true)),Or,(Value (BoolV false))   )) prg )
-let _ = assert (BoolV true = interpret(Operation((Value (IntV 5)),Less,(Value (IntV 6))   )) prg )
+   let _ = assert (IntV 10 = interpret(Operation((Value (IntV 5)),IPlus,(Value (IntV 5))   )) prg )
+   let _ = assert (BoolV true = interpret(Operation((Value (BoolV true)),Or,(Value (BoolV false))   )) prg )
+   let _ = assert (BoolV true = interpret(Operation((Value (IntV 5)),Less,(Value (IntV 6))   )) prg )
 
-let _ = assert (IntV 101 = interpret (
+   let _ = assert (IntV 101 = interpret (
     Syntax.Sequence (
       Syntax.While ("cond",
                     Syntax.BlockExpression ([],
@@ -357,9 +357,9 @@ let _ = assert (IntV 101 = interpret (
                                                                          Syntax.Operation ((Syntax.Variable "i"),
                                                                                            Syntax.IPlus, (Syntax.Value (Syntax.IntV 1))))))),
       (Syntax.Variable "i"))
-  ) prg)
-let _ = assert ((LocV 2) = interpret (Syntax.Cast ("a","myb")) prg)
-let _ = assert (BoolV true = interpret (Syntax.InstanceOf ("myb","a")) prg)
-let _ = assert (IntV 3 = interpret (Syntax.MethodCall("mya","add",["a"])) prg) *)
+   ) prg)
+   let _ = assert ((LocV 2) = interpret (Syntax.Cast ("a","myb")) prg)
+   let _ = assert (BoolV true = interpret (Syntax.InstanceOf ("myb","a")) prg)
+   let _ = assert (IntV 3 = interpret (Syntax.MethodCall("mya","add",["a"])) prg) *)
 (* let _ = assert (BoolV true = interpret(Operation((Value (BoolV true)),Less, (Value (BoolV true))   )) prg ) *)
 (* let _ = assert (VoidType ) *)

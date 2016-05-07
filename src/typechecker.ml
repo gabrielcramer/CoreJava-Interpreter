@@ -42,7 +42,7 @@ and checkLastClass classList = match List.last classList with
         | None -> raise (BadFoundedClassesError "Error: The main class has no methods.")
         | Some Method(mt,mn,args,e) -> if mn = "main" then if mt = VoidType then ()
             else raise (BadFoundedClassesError ("Error: The main method has " ^ Utils.stringOfType mt
-                                                      ^ " return type but was expected of return type " ^ Utils.stringOfType VoidType))
+                                                ^ " return type but was expected of return type " ^ Utils.stringOfType VoidType))
           else raise (BadFoundedClassesError "Error: There is no main method inside Main class.")
       end
     else raise (BadFoundedClassesError ("Error: Name of the last class has to be \"Main\"." ^ n))
