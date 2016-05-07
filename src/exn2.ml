@@ -16,9 +16,11 @@ let raiseRuntimeError (msg : string) = raise (RuntimeError msg)
 
 let raiseUnboundVar var =  raise(RuntimeError ("Error 3: Unbound variable "^ var))
 
-let raiseDifferentTypeExpErr exp expectedTypes actualType = let types = List.map expectedTypes ~f:(fun x-> Syntax.show_typ x)  in
-  let length = List.length types in let stringTypes = List.foldi types ~f:(fun i acc x-> if i = length - 1 then acc ^ x
-                                                                            else if i = length -2 then acc^ x ^ " or " else acc^ x ^ ", ") ~init:"" in
+let raiseDifferentTypeExpErr exp expectedTypes actualType =
+  let types = List.map expectedTypes ~f:(fun x -> Syntax.show_typ x) in
+  let length = List.length types in
+  let stringTypes = List.foldi types ~f:(fun i acc x -> if i = length - 1 then acc ^ x
+                                          else if i = length -2 then acc ^ x ^ " or " else acc ^ x ^ ", ") ~init:"" in
   raise(RuntimeError ("Error 5: Expression " ^ (Syntax.show_exp exp) ^
                       " has type " ^ (Syntax.show_typ actualType) ^ " but an expression was expected of type " ^
                       stringTypes ))

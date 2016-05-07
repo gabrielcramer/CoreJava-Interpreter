@@ -22,8 +22,10 @@ let parse_with_error lexbuf =
 let interpret lexbuf =
   match parse_with_error lexbuf with
   | Some program -> begin print_endline (Syntax.show_program program);
-      try Typechecker.typeCheckProgram program;
-        let _ = Interpreter.interpretProgram program in () with
+      try
+        Typechecker.typeCheckProgram program;
+        let _ = Interpreter.interpretProgram program in ()
+      with
       | StaticError msg -> print_endline ("Static error: " ^ msg)
       | RuntimeError msg -> print_endline ("Runtime error:" ^ msg)
     end

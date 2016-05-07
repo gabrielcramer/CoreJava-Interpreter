@@ -52,7 +52,7 @@
 %left EQUAL
 %right OR
 %right AND
-%left  LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
+%left LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
 %left IPLUS IMINUS FPLUS FMINUS
 %left IMULTIPLY IDIVIDE FMULTIPLY FDIVIDE
 %{ open Syntax %}
@@ -89,7 +89,7 @@ methodList:
 
 
 methodDeclaration:
-| typeD ID OPARENT methodParameterList CPARENT be = blockExpression   {Method($1, $2, $4, be)}
+| typeD ID OPARENT methodParameterList CPARENT be = blockExpression  {Method($1, $2, $4, be)}
 ;
 methodParameterList:
 |(* empty *) {[]}
@@ -100,6 +100,7 @@ methodParameterListAux:
 | methodParameter {[$1]}
 | methodParameter COMMA methodParameterListAux {$1 :: $3}
 ;
+
 methodParameter: typeD ID {($2, $1)}
 ;
 
@@ -131,12 +132,11 @@ expression:
 | NULL      {Value(NullV)}
 | ID        {Variable($1)}
 
-
 | ID DOT ID {ObjectField($1, $3)}
 | ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
 
 | ID EQUAL expression {VariableAssignment($1, $3)}
-| IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE  elseExp = groupExpression {If(guard, thenExp, elseExp)}
+| IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE elseExp = groupExpression {If(guard, thenExp, elseExp)}
 | operationExpression {$1}
 
 | OPARENT NOT expression CPARENT {Negation($3)}
@@ -171,7 +171,6 @@ operationExpression:
 | exp1 = expression NOT_EQUAL exp2 = expression {Operation(exp1, NotEqual, exp2)}
 | exp1 = expression AND exp2 = expression {Operation(exp1, And, exp2)}
 | exp1 = expression OR exp2 = expression {Operation(exp1, Or, exp2)}
-
 ;
 
 seqExpression:
@@ -179,7 +178,6 @@ seqExpression:
 | expression SEMICOLON  {$1}
 | e1 = expression SEMICOLON e2 = seqExpression {Sequence(e1, e2)}
 ;
-
 
 argsList:
 | /*empty*/ {[]}

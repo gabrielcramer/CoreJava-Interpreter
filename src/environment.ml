@@ -27,4 +27,4 @@ let rec map f = function
 
 let pop id = function
   | (id, _) :: tl -> tl
-  | _ -> raise(RuntimeError (id^" is not in top of the stack"))
+  | _ -> raise(RuntimeError (id ^ " is not in top of the stack"))

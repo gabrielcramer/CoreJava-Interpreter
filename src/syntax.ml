@@ -1,9 +1,10 @@
-type program = Program of (classDeclaration list)
+type program = Program of classDeclaration list
   [@@deriving show]
-and classDeclaration = Class of id * id * ((id * typ) list) * (methodDeclaration list)
+
+(** A class if formed of (name class, name parent class, list of fields, list of methods) *)
+and classDeclaration = Class of id * id * ((id * typ) list) * methodDeclaration list
   [@@deriving show]
-and fieldDeclaration = Field of typ * id
-  [@@deriving show]
+
 and typ = IntType
         | FloatType
         | BoolType
@@ -12,8 +13,11 @@ and typ = IntType
         | LocType
         | ObjectType of id
   [@@deriving show]
+
+(** A method has a (type method, name method, list of method parameters, the body of the method) *)
 and methodDeclaration = Method of typ * id * ((id * typ) list) * exp
   [@@deriving show]
+
 and exp = Value of value
         | Variable of id
         | ObjectField of id * id
@@ -34,6 +38,7 @@ and exp = Value of value
   (* and blkExp = BlockExpression of *)
   (* | BnVar of exp *)
   [@@deriving show]
+
 and value = NullV
           | IntV of int
           | FloatV of float
@@ -41,12 +46,13 @@ and value = NullV
           | VoidV
           | LocV of int
   [@@deriving show]
-and typeValue =
-  {	typ: typ;
-    value: value
-  }
 
+and typeValue = {
+  typ: typ;
+  value: value
+}
   [@@deriving show]
+
 and binaryOperator = IPlus
                    | IMinus
                    | IMultiply
@@ -64,5 +70,6 @@ and binaryOperator = IPlus
                    | And
                    | Or
   [@@deriving show]
+
 and id = string
   [@@deriving show]

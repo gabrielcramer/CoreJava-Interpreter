@@ -28,17 +28,21 @@ let rec step (state : state) : state = match state.e with
   | InstanceOf(var, cn) -> stepInstanceOf var cn state
   | MethodCall(cn, mn, params) -> stepMethodCall cn mn params state
 
-and evalVariable (var: id) (state : state) : value = if Environment.isIn var state.env then
-    (Environment.lookup var state.env).value
+and evalVariable (var: id) (state : state) : value =
+  if Environment.isIn var state.env then (Environment.lookup var state.env).value
   else raiseUnboundVar var
-and evalObjectVariable (var: id) (state: state) : value = let varValue = evalVariable var state in
+
+and evalObjectVariable (var : id) (state: state) : value = let varValue = evalVariable var state in
   if Utils.isLocation varValue then
     if Heap.isIn varValue state.heap then varValue
     else raiseRuntimeError ("Variable " ^ var ^ " does not point to a valid location in heap.")
   else raiseRuntimeError("Variable " ^ var ^ " is not an instantiated object." )
-and stepVariable (var:id) (state:state) : state =  let v = evalVariable var state in
+
+and stepVariable (var : id) (state:state) : state =  let v = evalVariable var state in
   {state with e = Value(v)}
-and stepObjectField (var : id) (field : id) (state : state) : state = if Environment.isIn var state.env then
+
+and stepObjectField (var : id) (field : id) (state : state) : state =
+  if Environment.isIn var state.env then
     let loc = (Environment.lookup var state.env).value in
     if Utils.isLocation loc then
       if Heap.isIn loc state.heap then
@@ -55,7 +59,8 @@ and stepObjectField (var : id) (field : id) (state : state) : state = if Environ
 and stepVariableAssignment (var : id) (e : exp) (state : state) : state = match e with
   | Value(v) ->
     if Environment.isIn var state.env then
-      let varT = Utils.getTypeOfVar_exn var state.env in let valT = Utils.getTypeOfVal v in
+      let varT = Utils.getTypeOfVar_exn var state.env in
+      let valT = Utils.getTypeOfVal v in
       if Utils.isSubtype valT varT state.prog then
         let nEnv = Environment.update var {typ = varT; value = v} state.env in
         {state with env = nEnv; e = Value(VoidV)}
@@ -65,9 +70,13 @@ and stepVariableAssignment (var : id) (e : exp) (state : state) : state = match 
 
 and stepObjectFieldAssignment (var : id) (field : id) (e : exp) (state : state) : state = match e with
   | Value(v) ->
-    if Environment.isIn var state.env then let loc = (Environment.lookup var state.env).value in
-      if Utils.isLocation loc then let fldE = (Heap.getFieldEnv_exn loc state.heap) in
-        if Environment.isIn field fldE then let fieldType = Utils.getTypeOfVar_exn field fldE in let valType = Utils.getTypeOfVal v in
+    if Environment.isIn var state.env then
+      let loc = (Environment.lookup var state.env).value in
+      if Utils.isLocation loc then
+        let fldE = (Heap.getFieldEnv_exn loc state.heap) in
+        if Environment.isIn field fldE then
+          let fieldType = Utils.getTypeOfVar_exn field fldE in
+          let valType = Utils.getTypeOfVal v in
           if Utils.isSubtype valType fieldType state.prog then
             let nHeap = Heap.update loc field {typ = fieldType; value = v} state.heap  in
             {state with heap = nHeap; e = Value(VoidV)}
@@ -82,18 +91,20 @@ and stepSequence (e1 : exp) (e2 : exp) (state : state) : state = match e1 with
   | _ -> let ns = (step {state with e = e1}) in {ns with e = Sequence(ns.e, e2)}
 
 and stepBlockExpression (l : ((id * typ) list)) (exp : exp) (state : state) : state = match l with
-  | [] -> { state with e = exp }
-  | [(id,typ)] -> {state with
-                   env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
-                   e = Ret(id, exp)}
-  | (id,typ) :: tl -> {state with
-                       env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
-                       e = Ret(id, BlockExpression(tl, exp))}
+  | [] -> {state with e = exp}
+  | [(id, typ)] -> {state with
+                    env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
+                    e = Ret(id, exp)}
+  | (id, typ) :: tl -> {state with
+                        env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
+                        e = Ret(id, BlockExpression(tl, exp))}
 
-and stepRet (v : id) (exp : exp) (state : state) : state = if Utils.isValue exp then
+and stepRet (v : id) (exp : exp) (state : state) : state =
+  if Utils.isValue exp then
     {state with env = (Environment.pop v state.env); e = exp}
   else
     let ns = (step {state with e = exp }) in {ns with e = Ret(v, ns.e)}
+
 and stepIf (var: id) (et : exp) (ee : exp) (state : state) : state = match evalVariable var state with
   | BoolV true -> {state with e = et}
   | BoolV false -> {state with e = ee}
@@ -109,30 +120,42 @@ and stepOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (state : state) : 
 
 and stepCompareOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (state : state) : state =
   match e1,e2 with
-  | Value v1, Value v2 -> let val1Type = Utils.getTypeOfVal v1 in let val2Type = Utils.getTypeOfVal v2 in
-
+  | Value v1, Value v2 -> let val1Type = Utils.getTypeOfVal v1 in
+    let val2Type = Utils.getTypeOfVal v2 in
     if val1Type = val2Type then
-      if (val1Type = IntType || val1Type = FloatType) then
-        let result = applyOp v1 v2 op in  {state with e = Value result}
-      else raiseDifferentTypeExpErr e1 [IntType;FloatType] val1Type
+      if val1Type = IntType || val1Type = FloatType then
+        let result = applyOp v1 v2 op in
+        {state with e = Value result}
+      else raiseDifferentTypeExpErr e1 [IntType; FloatType] val1Type
     else raiseRuntimeError ("Can not compare an expression " ^ (Utils.stringOfExp e1) ^ " of type "^ (Utils.stringOfType val1Type) ^
-                            "with an expression " ^(Utils.stringOfExp e2) ^ " of type " ^ (Utils.stringOfType val2Type))
+                            "with an expression " ^ (Utils.stringOfExp e2) ^ " of type " ^ (Utils.stringOfType val2Type))
 
-  | Value v1, e2 -> let val1Type = Utils.getTypeOfVal v1 in if (val1Type = IntType || val1Type = FloatType)  then
-      let ns = (step {state with e = e2}) in {ns with e = Operation(e1,op,ns.e)}
-    else raiseDifferentTypeExpErr (Value v1) [IntType;FloatType] val1Type
+  | Value v1, e2 -> let val1Type = Utils.getTypeOfVal v1 in
+    if val1Type = IntType || val1Type = FloatType then
+      let ns = (step {state with e = e2}) in
+      {ns with e = Operation(e1 ,op, ns.e)}
+    else
+      raiseDifferentTypeExpErr (Value v1) [IntType;FloatType] val1Type
+
   | e1, e2 -> let ns = (step {state with e = e1}) in {ns with e = Operation(ns.e,op,e2)}
 
 and stepArithmeticOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (expectedType : typ) (state : state) : state =
   match e1,e2 with
-  | Value v1, Value v2 -> let val1Type = Utils.getTypeOfVal v1 in let val2Type = Utils.getTypeOfVal v2 in
+  | Value v1, Value v2 -> let val1Type = Utils.getTypeOfVal v1 in
+    let val2Type = Utils.getTypeOfVal v2 in
     if val1Type = expectedType then
-      if val2Type = expectedType then let result = applyOp v1 v2 op in  {state with e = Value result}
+      if val2Type = expectedType then
+        let result = applyOp v1 v2 op in
+        {state with e = Value result}
       else raiseDifferentTypeExpErr e2 [expectedType] val2Type
     else raiseDifferentTypeExpErr e1 [expectedType] val1Type
-  | Value v1, e2 -> let val1Type = Utils.getTypeOfVal v1 in if val1Type = expectedType then
-      let ns = (step {state with e = e2}) in {ns with e = Operation(e1,op,ns.e)}
+
+  | Value v1, e2 -> let val1Type = Utils.getTypeOfVal v1 in
+    if val1Type = expectedType then
+      let ns = (step {state with e = e2}) in
+      {ns with e = Operation(e1,op,ns.e)}
     else raiseDifferentTypeExpErr e1 [expectedType] val1Type
+
   | e1, e2 -> let ns = (step {state with e = e1}) in {ns with e = Operation(ns.e,op,e2)}
 
 
@@ -154,19 +177,20 @@ and stepBoolOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (state : state
 and stepNegation (e : exp) (state : state) : state = match e with
   | Value BoolV v -> {state with e = Value (BoolV (not v))}
   | Value v -> raiseDifferentTypeExpErr e [BoolType] (Utils.getTypeOfVal v)
-  | e -> let ns  = (step {state with e = e}) in {ns with e = Negation(ns.e)}
+  | e -> let ns = (step {state with e = e}) in {ns with e = Negation(ns.e)}
 
-and stepWhile (var : id) (e : exp) (state : state) : state = let varValue = evalVariable var state in match varValue with
+and stepWhile (var : id) (e : exp) (state : state) : state = let varValue = evalVariable var state in
+  match varValue with
   | BoolV true -> {state with e = Sequence (e, While(var,e))}
   | BoolV false -> {state with e = Value VoidV}
   | v -> raiseDifferentTypeExpErr (Variable var) [BoolType] (Utils.getTypeOfVal v)
 
 and stepNew (id : id) (idList : id list) (state : state) : state = match (Utils.firstUnboundVariable idList state.env) with
   | None -> (if Utils.isDefinedInProg id state.prog then
-               let fieldList = (Utils.getFieldList (ObjectType id) state.prog) in
+               let fieldList = Utils.getFieldList (ObjectType id) state.prog in
                let typeList = Utils.getTypeList idList state.env in
-               match (Utils.checkFieldsTypes fieldList typeList state.prog) with
-               | None -> (let fEnv = (Utils.createFieldEnv fieldList idList state.env) in
+               match Utils.checkFieldsTypes fieldList typeList state.prog with
+               | None -> (let fEnv = Utils.createFieldEnv fieldList idList state.env in
                           let nl = Heap.nextLocation () in
                           let nh = Heap.extend nl {id = id; env = fEnv} state.heap in
                           {state with heap = nh; e = Value(nl)})
@@ -175,14 +199,16 @@ and stepNew (id : id) (idList : id list) (state : state) : state = match (Utils.
   | Some var -> raiseRuntimeError ("Unbound variable " ^ var)
 
 
-and stepCast (cn : id) (var : id)  (state : state) : state = if Utils.isDefinedInProg cn state.prog then
+and stepCast (cn : id) (var : id)  (state : state) : state =
+  if Utils.isDefinedInProg cn state.prog then
     let loc = evalObjectVariable var state in
-    let varType = Heap.getObjectType_exn loc state.heap in if Utils.isSubtype varType (ObjectType cn) state.prog then
-      {state with e = (Variable var)}
+    let varType = Heap.getObjectType_exn loc state.heap in
+    if Utils.isSubtype varType (ObjectType cn) state.prog then {state with e = (Variable var)}
     else raiseRuntimeError ("Can not cast variable " ^ var ^ " of type " ^ (Utils.stringOfType varType) ^ " to type " ^ cn)
   else raiseRuntimeError ("Unbound class " ^ cn)
 
-and stepInstanceOf  (var : id) (cn : id) (state : state) : state = if Utils.isDefinedInProg cn state.prog then
+and stepInstanceOf  (var : id) (cn : id) (state : state) : state =
+  if Utils.isDefinedInProg cn state.prog then
     let loc = evalObjectVariable var state in
     let varType = Heap.getObjectType_exn loc state.heap in
     let isInstance = Utils.isSubtype varType (ObjectType cn) state.prog in
@@ -192,19 +218,22 @@ and stepInstanceOf  (var : id) (cn : id) (state : state) : state = if Utils.isDe
 and stepMethodCall (var : id) (mn : id) (params : id list) (state : state) : state = let loc = evalObjectVariable var state in
   let varType = Heap.getObjectType_exn loc state.heap in
   let methodDecl = Utils.getMethodDefinition varType mn state.prog in match methodDecl with
-  | Some (Method(rt,_,idTypLst,e)) ->  begin let valList = List.map (fun x-> evalVariable x state)  params  in
-      let paramIdTypList = Core.Std.List.map params ~f:(fun id-> let typ = Utils.getTypeOfVar_exn id state.env in (id,typ)) in
-      try Core.Std.List.iter2_exn paramIdTypList idTypLst ~f:(fun (pn,ptype) (_,typ) ->
-          if Utils.isSubtype ptype typ state.prog then () else raise (IncompatibleTypes ((Variable pn), ptype, typ)) );
+  | Some (Method(rt,_,idTypLst,e)) ->  begin
+      (* TODO only use core std *)
+      let valList = List.map (fun x -> evalVariable x state) params in
+      let paramIdTypList = Core.Std.List.map params ~f:(fun id -> let typ = Utils.getTypeOfVar_exn id state.env in (id, typ)) in
+      try
+        Core.Std.List.iter2_exn paramIdTypList idTypLst ~f:(fun (pn,ptype) (_,typ) ->
+            if Utils.isSubtype ptype typ state.prog then () else raise (IncompatibleTypes ((Variable pn), ptype, typ)));
         (* generate fresh variables *)
-        let freshVars =  Core.Std.List.init (List.length params) ~f:(fun i-> "_x" ^ (string_of_int i))  in
-        let envExtension = ("_this", {typ=varType;value=loc}) :: Core.Std.List.map3_exn freshVars paramIdTypList valList ~f: (fun x (_,t) v -> (x,{typ=t;value=v})) in
+        let freshVars =  Core.Std.List.init (List.length params) ~f:(fun i -> "_x" ^ (string_of_int i))  in
+        let envExtension = ("_this", {typ = varType; value = loc}) ::
+                           Core.Std.List.map3_exn freshVars paramIdTypList valList ~f: (fun x (_, t) v -> (x, {typ = t; value = v})) in
         let newEnv = Environment.union envExtension state.env in
-        let substList = ("_this","this") :: Core.Std.List.map2_exn freshVars params ~f:(fun x y -> (x,y)) in
+        let substList = ("_this", "this") :: Core.Std.List.map2_exn freshVars params ~f:(fun x y -> (x, y)) in
         let substExp =  Core.Std.List.fold substList ~init:e ~f:(fun e (newName, name) -> Utils.substVariableName newName name e ) in
-        let retE = Core.Std.List.fold substList ~init: substExp ~f:(fun e (v,_)->  Ret(v,e)) in
-        {state with e =retE; env= newEnv}
-
+        let retE = Core.Std.List.fold substList ~init: substExp ~f:(fun e (v, _)->  Ret(v,e)) in
+        {state with e = retE; env = newEnv}
       with
         Invalid_argument _ -> raiseRuntimeError "Number of passed parameters is not valid."
       | IncompatibleTypes (exp, expectedType, actualType) -> raiseDifferentTypeExpErr exp [expectedType] actualType
@@ -219,7 +248,7 @@ and applyOp (e1 : value) (e2 : value) (op : binaryOperator) : value = match op w
           | IPlus -> IntV (v1 + v2)
           | IMinus -> IntV (v1 - v2)
           | IMultiply -> IntV (v1 * v2)
-          | IDivide -> (try IntV (v1 / v2)  with Division_by_zero -> raiseRuntimeError "Division by zero.")
+          | IDivide -> (try IntV (v1 / v2) with Division_by_zero -> raiseRuntimeError "Division by zero.")
           | _ -> raiseRuntimeError ("This should never happen")
         )
       | _ -> raiseRuntimeError ("Error: Expected values of type " ^ (Utils.stringOfType IntType))
@@ -260,17 +289,25 @@ let interpretExp (e: exp) (prog: program) : value =
   multistep initialState
 
 let interpretProgram (prog: program) : value = let Program classList = prog in
-  try let Class (n,_,fields,methods) = Core.Std.List.last_exn classList in if n = "Main" then
+  try
+    let Class (n, _, fields, methods) = Core.Std.List.last_exn classList in
+    if n = "Main" then
       if List.length fields = 0 then begin
-        try if List.length methods = 1 then let Method(rt,n,args,e) = Core.Std.List.last_exn methods in if rt = VoidType && n = "main" then
-              interpretExp e prog
-            else raise (Invalid_argument "")
-          else raise (Invalid_argument "")
+        try
+          if List.length methods = 1 then
+            let Method(rt,n,args,e) = Core.Std.List.last_exn methods in
+            if rt = VoidType && n = "main" then interpretExp e prog
+            else raise (Invalid_argument "TODO message")
+          else raise (Invalid_argument "TODO message")
         (* else raiseRuntimeError "The Main class should have only one method called main." *)
-        with Invalid_argument el ->  raiseRuntimeError ("There is no method main with return type " ^ (Utils.stringOfType VoidType)) end
+        with
+          Invalid_argument el -> raiseRuntimeError ("There is no method main with return type " ^ (Utils.stringOfType VoidType))
+      end
       else raiseRuntimeError "The Main class shouldn't have any fields."
     else raiseRuntimeError "The last declared class is not Main."
-  with Invalid_argument el -> raiseRuntimeError ("The program has no class declarations. " ^ el)
+  with
+    Invalid_argument el -> raiseRuntimeError ("The program has no class declarations. " ^ el)
+
 let initialHeap = (Heap.union [
     ((LocV 1), {id = "a"; env = (Environment.union
                                    [("f1",{typ = IntType; value = IntV 3})] Environment.empty)
@@ -284,8 +321,8 @@ let interpret (e : exp) (program : program) : value =
       ("a", {typ = IntType; value = IntV 3});
       ("i", {typ = IntType; value = IntV 0});
       ("cond", {typ = BoolType; value = BoolV true});
-      ("mya",{typ = ObjectType("a"); value = LocV 1});
-      ("myb",{typ = ObjectType("b"); value = LocV 2})] Environment.empty) in
+      ("mya", {typ = ObjectType("a"); value = LocV 1});
+      ("myb", {typ = ObjectType("b"); value = LocV 2})] Environment.empty) in
 
   let initialState = {heap = initialHeap; env = initialEnv; e = e; prog = program} in
   multistep initialState
