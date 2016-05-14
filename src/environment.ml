@@ -8,7 +8,7 @@ let extend x v env = (x, v) :: env
 
 let rec union lst env = match lst with
   | [] -> env
-  | (x :: xs) -> x :: union xs env
+  | x :: xs -> x :: union xs env
 
 let rec isIn id env =
   try List.assoc id env; true with Not_found -> false

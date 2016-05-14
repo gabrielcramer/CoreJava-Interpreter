@@ -1,8 +1,9 @@
 val getTypeOfVar_exn: Syntax.id -> Syntax.typeValue Environment.t -> Syntax.typ
 val getTypeOfVal: Syntax.value -> Syntax.typ
 val getTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.typ option
+val getMethods: Syntax.typ -> Syntax.program -> Syntax.methodDeclaration list
 val getMethodDefinition: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.methodDeclaration option
-
+val methodName: Syntax.methodDeclaration -> Syntax.id
 
 val leastMaxType: Syntax.typ -> Syntax.typ -> Syntax.program -> Syntax.typ option
 
@@ -18,9 +19,7 @@ val isDefinedInProg: Syntax.id -> Syntax.program -> bool
 val isTypeDeclared: Syntax.typ -> Syntax.program -> bool
 val isSubtype: Syntax.typ -> Syntax.typ -> Syntax.program -> bool
 val eachElementOnce_exn: 'a list -> unit
-val methodsOnce_exn: Syntax.classDeclaration -> unit
-val fieldsOnce_exn: Syntax.classDeclaration -> unit
-val goodInheritance: Syntax.classDeclaration -> Syntax.program -> unit
+
 
 val firstUnboundVariable: Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.id option
 val getFieldList: Syntax.typ -> Syntax.program-> (Syntax.id * Syntax.typ) list

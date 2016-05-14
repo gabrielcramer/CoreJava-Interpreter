@@ -1,4 +1,6 @@
 open Core.Std
+
+(** A set of values of type tuple(string, string) *)
 module StringTuple = struct
   type t = string * string
 

@@ -8,7 +8,7 @@
 %token WHILE
 %token IF
 %token ELSE
-%token MAIN
+/*%token MAIN*/
 
 %token TINT
 %token TFLOAT

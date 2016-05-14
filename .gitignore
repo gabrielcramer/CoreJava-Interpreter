@@ -27,3 +27,4 @@ src/parser.ml
 src/parser.mli
 *.automaton
 *.conflicts
+*.log

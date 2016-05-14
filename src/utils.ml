@@ -5,7 +5,7 @@ open Exn2
 let raiseRuntimeError (msg : string) = raise(RuntimeError ("Error: " ^ msg))
 
 let stringOfType = function
-  |  IntType -> "int"
+  | IntType -> "int"
   | FloatType -> "float"
   | BoolType -> "bool"
   | VoidType -> "void"
@@ -27,10 +27,10 @@ let stringOfValue = function
   | LocV(l) -> "Location(" ^ (string_of_int l) ^ ")"
 
 let stringOfOp = function
-  |IPlus -> " + "
-  |IMinus -> " - "
-  |IDivide -> " / "
-  |IMultiply -> " * "
+  | IPlus -> " + "
+  | IMinus -> " - "
+  | IDivide -> " / "
+  | IMultiply -> " * "
   | _ -> "floatOp"
 
 let rec stringOfExp = function
@@ -62,18 +62,21 @@ let stringOfEnv env =
                                            "; value = " ^ (stringOfValue typeValue.value) ^ "})") env) in
   (String.concat ~sep:", " stringList)
 
-let rec getParent obj prog = match obj with
-  | ObjectType(cn) -> (match prog with Program classList -> getParentAux cn classList)
+(* Get the parent class of `obj`. *)
+let getParent obj prog =
+  (* Lookup the class declaration list *)
+  let rec getParentAux className classList = match classList with
+    | Class(name, name_parent, _, _) :: tl -> if name = className then ObjectType name_parent else getParentAux className tl
+    | [] -> raiseRuntimeError (className ^ " class not declared inside program.")
+  in
+  match obj with
+  | ObjectType(cn) -> let Program(classList) = prog in getParentAux cn classList
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no base class.")
-and
-  getParentAux cn = function
-  | Class(c, p, _, _) :: tl -> if c = cn then (ObjectType p) else getParentAux cn tl
-  | [] ->  raiseRuntimeError (cn ^ " class not declared inside program.")
 
-
+(** Get all the fields of the class. Also inherits fields from it's parents. *)
 let rec getFieldList obj prog = match obj with
   | ObjectType "Object" -> []
-  | ObjectType(cn) ->  let p = (getParent obj prog) in (getFieldList p prog) @ (getFieldListAux1 cn prog)
+  | ObjectType(cn) ->  let p = getParent obj prog in (getFieldList p prog) @ (getFieldListAux1 cn prog)
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no fields.")
 
 and getFieldListAux1 cn = function Program classList -> getFieldListAux2 cn classList
@@ -96,12 +99,13 @@ let getTypeOfVal = function
   | LocV _ -> LocType
   | NullV -> NullType
 
-let getTypeField objType fn prog = match objType with
+(** Get the field type of `field_name` *)
+let getTypeField obj_type field_name prog = match obj_type with
   | ObjectType(cn) -> begin
-      let fieldList = getFieldList objType prog in
+      let fieldList = getFieldList obj_type prog in
       try
-        let (fnf, ftf) = List.find_exn fieldList ~f:(fun (x, _) -> x = fn) in
-        Some(ftf)
+        let _, found_type = List.find_exn fieldList ~f:(fun (name, _) -> name = field_name) in
+        Some(found_type)
       with
         Not_found -> None
     end
@@ -132,29 +136,32 @@ let rec isDefinedInProgAux (id : Syntax.id) (classList : Syntax.classDeclaration
   | Class(c, _, _, _) :: tl -> if c = id then true else isDefinedInProgAux id tl
   | [] -> false
 
-let isDefinedInProg id = function Program classList -> if id = "Object" then true else isDefinedInProgAux id classList
+(** Checks if the class `id` is defind in the prorgram *)
+let isDefinedInProg id  = function Program classList -> if id = "Object" then true else isDefinedInProgAux id classList
 
-let isTypeDeclared t prog = match t with
-  |ObjectType cn -> isDefinedInProg cn prog
-  |_ -> true
+(** Checks if the `typ` is defined in the program.
+    For primitive types it always returns true. *)
+let isTypeDeclared typ prog = match typ with
+  | ObjectType cn -> isDefinedInProg cn prog
+  | _ -> true
 
-let getMethods obj prog = match prog with
-  | Program classList -> (match obj with
-      | ObjectType "Object" -> []
-      | ObjectType cn -> begin
-          try
-            let Class(n, pn, _, methods) = List.find_exn classList ~f:(function Class(c, _, _, _) -> cn = c) in
-            methods
-          with
-            Not_found -> raiseRuntimeError ((stringOfType obj) ^ " is not defined inside program.")
-        end
-      | _ -> [])
+let getMethods obj prog = let Program classList = prog in
+  match obj with
+  | ObjectType "Object" -> []
+  | ObjectType cn -> begin
+      try
+        let Class(n, pn, _, methods) = List.find_exn classList ~f:(function Class(c, _, _, _) -> cn = c) in
+        methods
+      with
+        Not_found -> raiseRuntimeError ((stringOfType obj) ^ " is not defined inside program.")
+    end
+  | _ -> []
 
 let rec getMethodDefinition obj mn prog = match obj with
   | ObjectType cn -> begin
       if cn = "Object" then None
       else
-        let methods = (getMethods obj prog) in
+        let methods = getMethods obj prog in
         try
           let methodDecl = List.find_exn methods ~f:(function Method(_, n, _, _) -> n = mn) in
           Some(methodDecl)
@@ -163,30 +170,40 @@ let rec getMethodDefinition obj mn prog = match obj with
     end
   | _ -> None
 
+let methodName = function Method(_, n, _, _) -> n
+
 let getParentMethods obj prog = let parent = getParent obj prog in getMethods parent prog
 
+(** Returns the first element in the list that is not in the enviroment `env`. *)
 let rec firstUnboundVariable params env = match params with
   | id :: tl -> if Environment.isIn id env then firstUnboundVariable tl env else Some(id)
   | [] -> None
 
+(** Construct the hierarchy list of class `objType`.
+    It will go up the parent tree until no parents can be found (aka Object).
+    For Example: A extends B, B extends C, C extends Object.
+    We want to construct the hierarchy of A, it will be [A, B, C, Object] *)
 let rec constructHierarchyList objType prog = match objType with
   | ObjectType("Object") -> [objType]
-  | ObjectType(cn) -> let p = (getParent objType prog) in [objType] @ (constructHierarchyList p prog)
+  | ObjectType(cn) -> let p = getParent objType prog in [objType] @ (constructHierarchyList p prog)
   | primitiveType -> raiseRuntimeError ("Can not construct hierarchy for primitive type " ^ (stringOfType primitiveType))
 
-
-let rec findFirstIntersection list1 list2 = try
+(** Find the first element that intersects both lists. *)
+let findFirstIntersection list1 list2 = try
     let first = List.find_exn list1 ~f:(fun x -> List.exists list2 (fun y -> y = x)) in
     Some(first)
   with
     Not_found -> None
 
-let rec leastMaxType t1 t2 prog = match t1, t2 with
+(** Get the closest common type of `t1` and `t2`.
+    This is done by constructing the hierarchy list of both types then finding the first intersection. *)
+let leastMaxType t1 t2 prog = match t1, t2 with
   | ObjectType(cn1), ObjectType(cn2) -> let h1 = constructHierarchyList t1 prog in
     let h2 = constructHierarchyList t2 prog in
     findFirstIntersection h1 h2
   | primitive1, primitive2 -> if primitive1 = primitive2 then Some(t1) else None
 
+(* Check if t1 is subtype of t2. *)
 let rec isSubtype t1 t2 prog = match t1, t2 with
   | NullType, ObjectType(_) -> true
   | ObjectType _, ObjectType("Object") -> true
@@ -194,9 +211,10 @@ let rec isSubtype t1 t2 prog = match t1, t2 with
   | LocType, ObjectType _ -> true
   | ObjectType(cn1), ObjectType(cn2) -> if cn1 = cn2 then true
     else
-      let p = getParent t1 prog in
-      if t2 = p then true
-      else isSubtype p t2 prog
+      let parent_t1 = getParent t1 prog in
+      if t2 = parent_t1 then true
+      (* walk the hierarchy of t1 *)
+      else isSubtype parent_t1 t2 prog
   | a, b -> if a = b then true else false
 
 
@@ -217,37 +235,14 @@ let isFloatOperator = function FPlus | FMinus | FMultiply | FDivide -> true | _ 
 let isCompOperator = function Syntax.Less | LessEqual | EqEqual | GreaterEqual | Greater | NotEqual -> true | _ -> false
 let isBoolOperator = function And | Or -> true | _ -> false
 
+(** Checks the list for duplicate elements.
+    If a duplicate is found it throws DuplicateElement.
+    Complexity of this method is O(n^2) *)
 let eachElementOnce_exn l = List.iteri l ~f:(fun i x ->
     let xList = List.filter l ~f:(fun y -> x = y) in
-    if List.length xList = 1 then () else raise (DuplicateElement i))
-
-let methodsOnce_exn class_decl = let Class(_, _, _, methods) = class_decl in
-  let methodsNames = List.map methods ~f:(function Method(_, n, _, _) -> n) in
-  try
-    eachElementOnce_exn methodsNames
-  with
-    DuplicateElement index -> raise (DuplicateMethod (List.nth_exn methods index))
-
-let fieldsOnce_exn class_decl = let Class(_, _, fields, _) = class_decl in
-  let fieldsNames = List.map fields ~f:(function (n, _) -> n) in
-  try
-    eachElementOnce_exn fieldsNames
-  with
-    DuplicateElement index -> raise (DuplicateField (List.nth_exn fields index))
-
-let methodName = function Method(_, n, _, _) -> n
-
-let goodOverride m1 m2 prog = match m1, m2 with
-  | Method(t1, _, args1, e1), Method(t2, _, args2, e2) -> args1 = args2 && e1 = e2 && isSubtype t1 t2 prog
-
-let goodInheritance cl prog = let Class(cn,pn,_,methods) = cl in
-  let parentMethods = getMethods (ObjectType pn) prog in
-  List.iter methods ~f:(fun m ->
-      List.iter parentMethods ~f:(fun mp ->
-          if methodName m = methodName mp then
-            if goodOverride m mp prog then ()
-            else raise(BadMethodOverriding m)
-          else ()))
+    (* Only one element in the list *)
+    if List.length xList = 1 then ()
+    else raise (DuplicateElement i))
 
 let compareValues v11 v21 op = match v11, v21 with
   | `Int v1, `Int v2 -> begin  match op with
@@ -276,19 +271,28 @@ let rec substVariableName newName name exp = match exp with
   | Variable var -> if var = name then (Variable newName) else exp
   | ObjectField(var, field) -> if var = name then (ObjectField (newName,field)) else exp
   | VariableAssignment(var, e) -> let substExp = substVariableName newName name e in
-    if var = name then (VariableAssignment (newName,substExp)) else (VariableAssignment (var,substExp))
+    if var = name then VariableAssignment (newName,substExp)
+    else VariableAssignment (var,substExp)
+
   | ObjectFieldAssignment((var, f), e) -> let substExp = substVariableName newName name e in
-    if var = name then ObjectFieldAssignment((newName, f), substExp) else ObjectFieldAssignment((var, f), substExp)
-  | Sequence(e1, e2) -> Sequence ((substVariableName newName name e1),(substVariableName newName name e2))
+    if var = name then ObjectFieldAssignment((newName, f), substExp)
+    else ObjectFieldAssignment((var, f), substExp)
+
+  | Sequence(e1, e2) -> Sequence ((substVariableName newName name e1), (substVariableName newName name e2))
   | BlockExpression(list, e) ->  BlockExpression(list,substVariableName newName name e)
-  | If (var, et, ee) -> let set = substVariableName newName name et in let see = substVariableName newName name ee in
-    if var = name then If(newName,set,see) else If(var,set,see)
+  | If (var, et, ee) -> let set = substVariableName newName name et in
+    let see = substVariableName newName name ee in
+    if var = name then If(newName, set, see)
+    else If(var, set, see)
+
   | Operation(e1, op, e2) -> Operation ((substVariableName newName name e1), op, (substVariableName newName name e2))
   | Negation e -> Negation (substVariableName newName name e)
   | New (cn, varList) -> let substVars = List.map varList ~f:(fun x -> if x = name then newName else x) in
     New (cn,substVars)
   | While (var, e) -> let se = substVariableName newName name e in
-    if var = name then While (newName, se) else While (var,se)
+    if var = name then While (newName, se)
+    else While (var,se)
+
   | Cast (cn, var) -> if var = name then Cast (cn,newName) else exp
   | InstanceOf (var, cn) -> if var = name then InstanceOf (newName, cn) else exp
   | MethodCall (var, mn, params) -> let substVar = (if var = name then newName else var) in
