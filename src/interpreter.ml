@@ -306,8 +306,8 @@ and applyOp (e1 : value) (e2 : value) (op : binaryOperator) : value = match op w
 let rec multistep (state : state) : value =
   (* debug print every 10 steps *)
   if !stepCounter mod 10 = 0 then begin
-    print_endline (Core.Std.Printf.sprintf "-------------------\n\nENV: %s\nEXP: %s\n\n-----------------"
-                     (Utils.stringOfEnv state.env) (Syntax.show_exp state.e));
+    print_endline (Core.Std.Printf.sprintf "-------------------\n\n>ENV: %s\n>HEAP: %s\n>EXP: %s\n\n-----------------"
+                     (Environment.show Syntax.pp_typeValue state.env) (Heap.show state.heap) (Syntax.show_exp state.e));
   end else ();
   stepCounter := !stepCounter + 1;
   match state.e with

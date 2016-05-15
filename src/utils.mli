@@ -37,4 +37,3 @@ val stringListOfIdTypList: (Syntax.id * Syntax.typ) list -> string list
 val stringOfValue: Syntax.value -> string
 val stringOfEnv: Syntax.typeValue Environment.t -> string
 val stringOfExp: Syntax.exp -> string
-val stringOfMethods: Syntax.methodDeclaration list -> string

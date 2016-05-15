@@ -2,11 +2,12 @@ open Core.Std
 
 (* Maps location => object values(heap entry)*)
 type t = (Syntax.value * heapEntry) list
+  [@@deriving show]
 
 (* Maps class name => field enviroment
    A `env`(field enviroment ) is just a field name => (type, value) *)
 and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t}
-
+  [@@deriving show]
 exception Not_bound
 
 let empty = []

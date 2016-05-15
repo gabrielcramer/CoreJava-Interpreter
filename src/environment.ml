@@ -1,5 +1,5 @@
 type 'a t = (Syntax.id * 'a) list
-
+  [@@deriving show]
 exception Not_bound
 exception RuntimeError of string
 

@@ -2,8 +2,6 @@ open Syntax
 open Core.Std
 open Exn2
 
-let raiseRuntimeError (msg : string) = raise(RuntimeError ("Error: " ^ msg))
-
 let stringOfType = function
   | IntType -> "int"
   | FloatType -> "float"
@@ -51,11 +49,6 @@ let rec stringOfExp = function
   | MethodCall(cn, mn, params) -> "MethodCall"
   | Ret(v, exp) -> "ret"
 
-let rec stringOfMethods = function
-  | [] -> "\n"
-  | hd :: tl -> match hd with
-    | Method(t, n, args, exp) -> (stringOfType t) ^ " " ^ n ^ " (" ^ (String.concat ~sep:", "  (stringListOfIdTypList args)) ^ ") \n" ^ (stringOfExp exp) ^ "\n/* endmethod */\n"
-
 let stringOfEnv env =
   let stringList = Environment.map (fun id typeValue ->
       sprintf "(%s {typ = %s; value = %s})" id (stringOfType typeValue.typ) (stringOfValue typeValue.value)) env in
@@ -78,13 +71,15 @@ let getProgramClasslist = function Program classList -> classList
 let rec getFieldList obj prog =
   match obj with
   | ObjectType "Object" -> []
-  | ObjectType(cn) ->  let p = getParent obj prog in (getFieldList p prog) @ (getFieldListAux cn (getProgramClasslist prog))
+  | ObjectType(cn) ->  let p = getParent obj prog in (getFieldList p prog) @ (getFieldListAux cn prog)
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no fields.")
 
-and getFieldListAux (cn : Syntax.id) (classList : Syntax.classDeclaration list) = match classList with
-  | [Class(c, _, fields, _)] -> if c = cn then fields else []
-  | Class(c, _, fields, _) :: tl -> if c = cn then fields else getFieldListAux cn tl
-  | [] -> [] (* TODO:think about this case*)
+and getFieldListAux class_name = function Program classList ->
+  try
+    let Class(_, _, fields, _) = List.find_exn  ~f:(function Class(cn, _, _, _) -> cn = class_name) classList in fields
+  with
+  | Not_found -> raiseRuntimeError (class_name ^ " not defined in the program")
+
 
 let getTypeOfVar_exn var (env : Syntax.typeValue Environment.t) : Syntax.typ =
   try (Environment.lookup var env).typ with Environment.Not_bound -> Exn2.raiseRuntimeError var
@@ -135,13 +130,10 @@ let isObjectType = function
   | _ -> false
 
 (** Checks if the class `id` is defind in the program *)
-let isDefinedInProg id program = let Program classList = program in
-  let rec isDefinedInProgAux (id : Syntax.id) (classList : Syntax.classDeclaration list) : bool = match classList with
-    | Class(cname, _, _, _) :: tl -> if cname = id then true else isDefinedInProgAux id tl
-    | [] -> false
-  in
-  if id = "Object" then true
-  else isDefinedInProgAux id classList
+let isDefinedInProg id = function Program classList -> if id = "Object" then true
+  else match List.find classList ~f:(function Class(n, _, _, _) -> n = id) with
+    | Some _ -> true
+    | None -> false
 
 (** Checks if the `typ` is defined in the program.
     For primitive types it always returns true. *)

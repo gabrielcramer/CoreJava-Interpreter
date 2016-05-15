@@ -1,5 +1,5 @@
 type 'a t
-
+  [@@deriving show]
 exception Not_bound
 
 val empty : 'a t
