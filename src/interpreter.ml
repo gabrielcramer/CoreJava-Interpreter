@@ -37,6 +37,7 @@ and evalVariable (var : id) (state : state) : value =
   if Environment.isIn var state.env then (Environment.lookup var state.env).value
   else raiseUnboundVar var
 
+(** Get the adress location of the object `var`. *)
 and evalObjectVariable (var : id) (state : state) : value = let varValue = evalVariable var state in
   if Utils.isLocation varValue then
     if Heap.isIn varValue state.heap then varValue
@@ -172,10 +173,11 @@ and stepArithmeticOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (expecte
 
   | e1, e2 -> let ns = (step {state with e = e1}) in {ns with e = Operation(ns.e,op,e2)}
 
-
 and stepBoolOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (state : state) : state = match op with
   | And -> begin match e1 with
+      (* The value of this AND is `e2` *)
       | Value BoolV true -> {state with e = e2}
+      (* The value of this AND is `false` *)
       | Value BoolV false -> {state with e = e1}
       | Value nonBool -> raiseDifferentTypeExpErr e1 [BoolType] (Utils.getTypeOfVal nonBool)
       | e -> let ns = (step {state with e = e}) in {ns with e = Operation(ns.e, op, e2)}
@@ -213,12 +215,12 @@ and stepNew (id : id) (idList : id list) (state : state) : state = match Utils.f
         | None -> (let fEnv = Utils.createFieldEnv fieldList idList state.env in
                    let nl = Heap.nextLocation () in
                    let nh = Heap.extend nl {id = id; env = fEnv} state.heap in
+                   (* Return the state with the new heap and the location created. *)
                    {state with heap = nh; e = Value(nl)})
         | Some field -> raiseRuntimeError ("Field" ^ field ^ "uncompatibile with its corresponding value")
       else raiseRuntimeError (id ^ " not defined in prog")
     end
   | Some var -> raiseRuntimeError ("Unbound variable " ^ var)
-
 
 and stepCast (cn : id) (var : id)  (state : state) : state =
   if Utils.isDefinedInProg cn state.prog then
@@ -228,7 +230,7 @@ and stepCast (cn : id) (var : id)  (state : state) : state =
     else raiseRuntimeError ("Can not cast variable " ^ var ^ " of type " ^ (Utils.stringOfType varType) ^ " to type " ^ cn)
   else raiseRuntimeError ("Unbound class " ^ cn)
 
-and stepInstanceOf  (var : id) (cn : id) (state : state) : state =
+and stepInstanceOf (var : id) (cn : id) (state : state) : state =
   if Utils.isDefinedInProg cn state.prog then
     let loc = evalObjectVariable var state in
     let varType = Heap.getObjectType_exn loc state.heap in
@@ -240,28 +242,34 @@ and stepMethodCall (var : id) (mn : id) (params : id list) (state : state) : sta
   let varType = Heap.getObjectType_exn loc state.heap in
   let methodDecl = Utils.getMethodDefinition varType mn state.prog in
   match methodDecl with
-  | Some Method(rt, _, idTypLst, e) -> begin
+  | Some Method(rt, _, idTypLst, body_expr) -> begin
       (* TODO only use core std *)
+      (* Get the values of the parameters. *)
       let valList = List.map (fun x -> evalVariable x state) params in
+      (* Construct the list of params as (id, type). *)
       let paramIdTypList = Core.Std.List.map params ~f:(fun id -> let typ = Utils.getTypeOfVar_exn id state.env in (id, typ)) in
       try
+        (* Check that the type of the method correspond to the types of the params given. *)
         Core.Std.List.iter2_exn paramIdTypList idTypLst ~f:(fun (pn, ptype) (_,typ) ->
             if Utils.isSubtype ptype typ state.prog then () else raise (IncompatibleTypes ((Variable pn), ptype, typ)));
-        (* generate fresh variables *)
+        (* generate fresh variables (_x0, _x1, ... , _xn) *)
         let freshVars = Core.Std.List.init (List.length params) ~f:(fun i -> "_x" ^ (string_of_int i))  in
+        (* Build the new enviroment with the new fresh vars. Eg: (_x0, {typ = first param type; value = first param value}) *)
         let envExtension = ("_this", {typ = varType; value = loc}) ::
                            Core.Std.List.map3_exn freshVars paramIdTypList valList ~f: (fun x (_, t) v -> (x, {typ = t; value = v})) in
         let newEnv = Environment.union envExtension state.env in
+        (* Build the substitution list (new_name, old_name). Eg: (_x0, first param) *)
         let substList = ("_this", "this") :: Core.Std.List.map2_exn freshVars params ~f:(fun x y -> (x, y)) in
-        let substExp =  Core.Std.List.fold substList ~init:e ~f:(fun e (newName, name) -> Utils.substVariableName newName name e ) in
-        let retE = Core.Std.List.fold substList ~init: substExp ~f:(fun e (v, _)->  Ret(v,e)) in
+        (* Replace all the body variables with the fresh variables *)
+        let substExp = Core.Std.List.fold substList ~init:body_expr ~f:(fun expr (newName, name) -> Utils.substVariableName newName name expr) in
+        (* Remove from stack all the fresh variables at the end of the body execution. *)
+        let retE = Core.Std.List.fold substList ~init:substExp ~f:(fun expr (newName, _)-> Ret(newName, expr)) in
         {state with e = retE; env = newEnv}
       with
         Invalid_argument _ -> raiseRuntimeError "Number of passed parameters is not valid."
       | IncompatibleTypes (exp, expectedType, actualType) -> raiseDifferentTypeExpErr exp [expectedType] actualType
     end
   | None -> raiseRuntimeError ((Utils.stringOfType varType) ^ " does not have a method called " ^ mn)
-
 
 and applyOp (e1 : value) (e2 : value) (op : binaryOperator) : value = match op with
   | op when Utils.isIntOperator op -> begin
@@ -298,8 +306,8 @@ and applyOp (e1 : value) (e2 : value) (op : binaryOperator) : value = match op w
 let rec multistep (state : state) : value =
   (* debug print every 10 steps *)
   if !stepCounter mod 10 = 0 then begin
-  print_endline (Core.Std.Printf.sprintf "-------------------\n\nENV: %s\nEXP: %s\n\n-----------------"
-                   (Utils.stringOfEnv state.env) (Syntax.show_exp state.e));
+    print_endline (Core.Std.Printf.sprintf "-------------------\n\nENV: %s\nEXP: %s\n\n-----------------"
+                     (Utils.stringOfEnv state.env) (Syntax.show_exp state.e));
   end else ();
   stepCounter := !stepCounter + 1;
   match state.e with

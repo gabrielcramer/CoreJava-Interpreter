@@ -57,9 +57,8 @@ let rec stringOfMethods = function
     | Method(t, n, args, exp) -> (stringOfType t) ^ " " ^ n ^ " (" ^ (String.concat ~sep:", "  (stringListOfIdTypList args)) ^ ") \n" ^ (stringOfExp exp) ^ "\n/* endmethod */\n"
 
 let stringOfEnv env =
-  let stringList = (Environment.map
-                      (fun id typeValue -> "(" ^ id ^ " {typ = " ^ (stringOfType typeValue.typ) ^
-                                           "; value = " ^ (stringOfValue typeValue.value) ^ "})") env) in
+  let stringList = Environment.map (fun id typeValue ->
+      sprintf "(%s {typ = %s; value = %s})" id (stringOfType typeValue.typ) (stringOfValue typeValue.value)) env in
   (String.concat ~sep:", " stringList)
 
 (* Get the parent class of `obj`. *)
@@ -73,22 +72,24 @@ let getParent obj prog =
   | ObjectType(cn) -> let Program(classList) = prog in getParentAux cn classList
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no base class.")
 
+let getProgramClasslist = function Program classList -> classList
+
 (** Get all the fields of the class. Also inherits fields from it's parents. *)
-let rec getFieldList obj prog = match obj with
+let rec getFieldList obj prog =
+  match obj with
   | ObjectType "Object" -> []
-  | ObjectType(cn) ->  let p = getParent obj prog in (getFieldList p prog) @ (getFieldListAux1 cn prog)
+  | ObjectType(cn) ->  let p = getParent obj prog in (getFieldList p prog) @ (getFieldListAux cn (getProgramClasslist prog))
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no fields.")
 
-and getFieldListAux1 cn = function Program classList -> getFieldListAux2 cn classList
-
-and getFieldListAux2 (cn : Syntax.id) (classList : Syntax.classDeclaration list) = match classList with
+and getFieldListAux (cn : Syntax.id) (classList : Syntax.classDeclaration list) = match classList with
   | [Class(c, _, fields, _)] -> if c = cn then fields else []
-  | Class(c, _, fields, _) :: tl -> if c = cn then fields else getFieldListAux2 cn tl
+  | Class(c, _, fields, _) :: tl -> if c = cn then fields else getFieldListAux cn tl
   | [] -> [] (* TODO:think about this case*)
 
 let getTypeOfVar_exn var (env : Syntax.typeValue Environment.t) : Syntax.typ =
   try (Environment.lookup var env).typ with Environment.Not_bound -> Exn2.raiseRuntimeError var
 
+(** Return the types of the `idList`. *)
 let getTypeList idList env = List.map idList (fun id -> getTypeOfVar_exn id env)
 
 let getTypeOfVal = function
@@ -111,6 +112,7 @@ let getTypeField obj_type field_name prog = match obj_type with
     end
   | _ -> None
 
+(** The default values of the types *)
 let initValue = function
   | IntType -> IntV(0)
   | FloatType -> FloatV(0.0)
@@ -132,12 +134,14 @@ let isObjectType = function
   | ObjectType _ -> true
   | _ -> false
 
-let rec isDefinedInProgAux (id : Syntax.id) (classList : Syntax.classDeclaration list) : bool = match classList with
-  | Class(c, _, _, _) :: tl -> if c = id then true else isDefinedInProgAux id tl
-  | [] -> false
-
-(** Checks if the class `id` is defind in the prorgram *)
-let isDefinedInProg id  = function Program classList -> if id = "Object" then true else isDefinedInProgAux id classList
+(** Checks if the class `id` is defind in the program *)
+let isDefinedInProg id program = let Program classList = program in
+  let rec isDefinedInProgAux (id : Syntax.id) (classList : Syntax.classDeclaration list) : bool = match classList with
+    | Class(cname, _, _, _) :: tl -> if cname = id then true else isDefinedInProgAux id tl
+    | [] -> false
+  in
+  if id = "Object" then true
+  else isDefinedInProgAux id classList
 
 (** Checks if the `typ` is defined in the program.
     For primitive types it always returns true. *)
@@ -145,6 +149,7 @@ let isTypeDeclared typ prog = match typ with
   | ObjectType cn -> isDefinedInProg cn prog
   | _ -> true
 
+(** Get all the methods defined in the current class `obj`. *)
 let getMethods obj prog = let Program classList = prog in
   match obj with
   | ObjectType "Object" -> []
@@ -157,21 +162,24 @@ let getMethods obj prog = let Program classList = prog in
     end
   | _ -> []
 
-let rec getMethodDefinition obj mn prog = match obj with
+(** Find the method definition of `method_name` in the current class or walk up the parent tree. *)
+let rec getMethodDefinition obj method_name prog = match obj with
   | ObjectType cn -> begin
       if cn = "Object" then None
       else
         let methods = getMethods obj prog in
         try
-          let methodDecl = List.find_exn methods ~f:(function Method(_, n, _, _) -> n = mn) in
+          let methodDecl = List.find_exn methods ~f:(function Method(_, n, _, _) -> n = method_name) in
           Some(methodDecl)
         with
-          Not_found -> getMethodDefinition (getParent obj prog) mn prog
+          Not_found -> getMethodDefinition (getParent obj prog) method_name prog
     end
   | _ -> None
 
+(** Get the name of the method. *)
 let methodName = function Method(_, n, _, _) -> n
 
+(** Get all the methods defined in the parent class of the `obj`. *)
 let getParentMethods obj prog = let parent = getParent obj prog in getMethods parent prog
 
 (** Returns the first element in the list that is not in the enviroment `env`. *)
@@ -203,7 +211,7 @@ let leastMaxType t1 t2 prog = match t1, t2 with
     findFirstIntersection h1 h2
   | primitive1, primitive2 -> if primitive1 = primitive2 then Some(t1) else None
 
-(* Check if t1 is subtype of t2. *)
+(** Check if t1 is subtype of t2. *)
 let rec isSubtype t1 t2 prog = match t1, t2 with
   | NullType, ObjectType(_) -> true
   | ObjectType _, ObjectType("Object") -> true
@@ -217,16 +225,18 @@ let rec isSubtype t1 t2 prog = match t1, t2 with
       else isSubtype parent_t1 t2 prog
   | a, b -> if a = b then true else false
 
-
+(** Check that every type in `types` is a subtype of the field type, one by one. *)
 let rec checkFieldsTypes fields types prog = match fields, types with
-  | (f, tf) :: tlf, tv :: tlt -> if isSubtype tv tf prog then checkFieldsTypes tlf tlt prog else Some(f)
+  | (field, field_type) :: tl_fields, type_value :: tl_types ->
+    if isSubtype type_value field_type prog then checkFieldsTypes tl_fields tl_types prog
+    else Some(field)
   | [], [] -> None
   | _ -> raiseRuntimeError ("Default case reached in Utils.checkFieldsTypes") (*TODO better treat this case*)
 
-
+(** Create a new enviroment from the fields and ids, used for creating the env in the heap. *)
 let rec createFieldEnv (fields : (Syntax.id * Syntax.typ) list) idList (env : Syntax.typeValue Environment.t) = match fields, idList with
-  | (f, tf) :: tlf, id :: tl -> let v = (Environment.lookup id env) in
-    Environment.extend f v (createFieldEnv tlf tl env)
+  | (field, _) :: tlf, id :: tl -> let value = Environment.lookup id env in
+    Environment.extend field value (createFieldEnv tlf tl env)
   | [], [] -> Environment.empty
   | _ ->  raiseRuntimeError ("Default case reached in Utils.createFieldEnv") (*TODO better treat this case*)
 
@@ -244,8 +254,9 @@ let eachElementOnce_exn l = List.iteri l ~f:(fun i x ->
     if List.length xList = 1 then ()
     else raise (DuplicateElement i))
 
-let compareValues v11 v21 op = match v11, v21 with
-  | `Int v1, `Int v2 -> begin  match op with
+(** Compare two ints or floats *)
+let compareValues first second op = match first, second with
+  | `Int v1, `Int v2 -> begin match op with
       | Syntax.Less -> BoolV (v1 < v2)
       | LessEqual -> BoolV (v1 <= v2)
       | EqEqual -> BoolV (v1 = v2)
@@ -265,11 +276,11 @@ let compareValues v11 v21 op = match v11, v21 with
     end
   | _ -> raiseRuntimeError ("This should never happen")
 
-
+(** Replace all occurences of `name` with `newName` *)
 let rec substVariableName newName name exp = match exp with
-  | Value _ ->  exp
-  | Variable var -> if var = name then (Variable newName) else exp
-  | ObjectField(var, field) -> if var = name then (ObjectField (newName,field)) else exp
+  | Value _ -> exp
+  | Variable var -> if var = name then Variable newName else exp
+  | ObjectField(var, field) -> if var = name then ObjectField (newName, field) else exp
   | VariableAssignment(var, e) -> let substExp = substVariableName newName name e in
     if var = name then VariableAssignment (newName,substExp)
     else VariableAssignment (var,substExp)
@@ -279,7 +290,7 @@ let rec substVariableName newName name exp = match exp with
     else ObjectFieldAssignment((var, f), substExp)
 
   | Sequence(e1, e2) -> Sequence ((substVariableName newName name e1), (substVariableName newName name e2))
-  | BlockExpression(list, e) ->  BlockExpression(list,substVariableName newName name e)
+  | BlockExpression(list, e) -> BlockExpression(list, substVariableName newName name e)
   | If (var, et, ee) -> let set = substVariableName newName name et in
     let see = substVariableName newName name ee in
     if var = name then If(newName, set, see)
@@ -287,14 +298,17 @@ let rec substVariableName newName name exp = match exp with
 
   | Operation(e1, op, e2) -> Operation ((substVariableName newName name e1), op, (substVariableName newName name e2))
   | Negation e -> Negation (substVariableName newName name e)
-  | New (cn, varList) -> let substVars = List.map varList ~f:(fun x -> if x = name then newName else x) in
-    New (cn,substVars)
+  | New(cn, varList) -> let substVars = List.map varList ~f:(fun x -> if x = name then newName else x) in
+    New(cn, substVars)
+
   | While (var, e) -> let se = substVariableName newName name e in
     if var = name then While (newName, se)
-    else While (var,se)
+    else While (var, se)
 
-  | Cast (cn, var) -> if var = name then Cast (cn,newName) else exp
+  | Cast (cn, var) -> if var = name then Cast (cn, newName) else exp
   | InstanceOf (var, cn) -> if var = name then InstanceOf (newName, cn) else exp
   | MethodCall (var, mn, params) -> let substVar = (if var = name then newName else var) in
-    let substParams = List.map params ~f:(fun p -> if p = name then newName else p) in MethodCall(substVar,mn,substParams)
+    let substParams = List.map params ~f:(fun p -> if p = name then newName else p) in
+    MethodCall(substVar, mn, substParams)
+
   | Ret (v, e) -> exp (* TODO: Think twice about this case. Do we need to substitute also in this type of exp?*)

@@ -52,7 +52,7 @@ and goodInheritance_exn class_decl prog = let Class(cn, pn, _, methods) = class_
           else ()))
 
 (** Checks if there no duplicate definitions of classes, no cycle in the classes hierarchy
-    and the last class contains is the Main class with the main method *)
+    and the last class is the Main class with the main method. *)
 and wellFoundedClasses prog = let Program classList = prog in
   (* Contains the set of (class name, parent name) tuples *)
   let set_class_parent = List.fold classList ~init:StringTupleSet.empty
@@ -76,7 +76,7 @@ and wellFoundedClasses prog = let Program classList = prog in
   else
     raise (BadFoundedClassesError ("Error: There is a cycle in the class hierarchy"))
 
-(** Build the string tuple set of all class paths that can go from any starting point *)
+(** Build the string tuple set of all class paths that can go from any starting point. *)
 and transitiveClosure ir =
   let newIR = StringTupleSet.fold ir ~init:ir ~f:(fun acc pair ->
       let cn1, cn2 = pair in
