@@ -1,6 +1,9 @@
 %token <int> INT
 %token <float> FLOAT
 %token <bool> BOOL
+%token L
+%token H
+%token M
 %token <string> ID
 %token CLASS
 %token EXTENDS
@@ -8,7 +11,6 @@
 %token WHILE
 %token IF
 %token ELSE
-%token MAIN
 
 %token TINT
 %token TFLOAT
@@ -52,11 +54,7 @@
 %left EQUAL
 %right OR
 %right AND
-<<<<<<< HEAD
 %left LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
-=======
-%left  LESS LESS_EQUAL EQ_EQUAL GREATER_EQUAL GREATER NOT_EQUAL
->>>>>>> Improve grammar in parser.mly
 %left IPLUS IMINUS FPLUS FMINUS
 %left IMULTIPLY IDIVIDE FMULTIPLY FDIVIDE
 %{ open Syntax %}
@@ -73,8 +71,8 @@ classDeclarationList:
 ;
 
 classDeclaration:
-| CLASS obj = ID LEFT_BRACE RIGHT_BRACE {Class(obj, "Object", [], [])}
-| CLASS obj = ID EXTENDS parent = ID LEFT_BRACE fields = fieldList HASHTAG methods = methodList RIGHT_BRACE {Class(obj, parent, fields, methods)}
+| CLASS obj = ID l = label LEFT_BRACE fields = fieldList HASHTAG methods = methodList RIGHT_BRACE {Class(obj, l, "Object", fields, methods)}
+| CLASS obj = ID l = label EXTENDS parent = ID LEFT_BRACE fields = fieldList HASHTAG methods = methodList RIGHT_BRACE {Class(obj,l, parent, fields, methods)}
 ;
 
 fieldList:
@@ -91,9 +89,8 @@ methodList:
 | methodDeclaration methodList {$1 :: $2}
 ;
 
-
 methodDeclaration:
-| typeD ID OPARENT methodParameterList CPARENT be = blockExpression  {Method($1, $2, $4, be)}
+| secureType ID OPARENT methodParameterList CPARENT l = label be = blockExpression  {Method($1, $2, $4,l, be)}
 ;
 methodParameterList:
 |(* empty *) {[]}
@@ -105,15 +102,14 @@ methodParameterListAux:
 | methodParameter COMMA methodParameterListAux {$1 :: $3}
 ;
 
-methodParameter: typeD ID {($2, $1)}
+methodParameter: secureType ID {($2, $1)}
 ;
 
 blockExpression:
 | LEFT_BRACE vars = varDeclList HASHTAG e = seqExpression RIGHT_BRACE {BlockExpression(vars, e) }
-<<<<<<< HEAD
-=======
 
->>>>>>> Improve grammar in parser.mly
+
+
 ;
 varDeclList:
 | (* empty *) {[]}
@@ -122,17 +118,16 @@ varDeclList:
 
 varDeclListAux:
 | varDecl {[$1]}
-<<<<<<< HEAD
 | varDecl varDeclListAux { $1 :: $2}
-=======
->>>>>>> Improve grammar in parser.mly
+
 
 varDecl:
-| TINT ID SEMICOLON  {($2, IntType)}
-| TFLOAT ID SEMICOLON {($2, FloatType)}
-| TBOOL ID SEMICOLON {($2, BoolType)}
-| TVOID ID SEMICOLON {($2, VoidType)}
-| ID ID SEMICOLON {($2, ObjectType($1))}
+| secureType ID SEMICOLON { ($2, $1) }
+/*| TINT ID SEMICOLON  {($2, {typ=IntType;label=L})}
+| TFLOAT ID SEMICOLON {($2, {typ=FloatType;label=L})}
+| TBOOL ID SEMICOLON {($2, {typ=BoolType;label=L})}
+| TVOID ID SEMICOLON {($2, {typ=VoidType;label=L})}
+| ID ID SEMICOLON {($2, {typ=ObjectType($1);label=L})}*/
 ;
 
 /*Add semicolon at the end of some expressions*/
@@ -143,19 +138,12 @@ expression:
 | NULL      {Value(NullV)}
 | ID        {Variable($1)}
 
-<<<<<<< HEAD
 | ID DOT ID {ObjectField($1, $3)}
 | ID DOT ID EQUAL expression {ObjectFieldAssignment(($1, $3), $5)}
 
 | ID EQUAL expression {VariableAssignment($1, $3)}
 | IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE elseExp = groupExpression {If(guard, thenExp, elseExp)}
-=======
 
-| ID DOT ID {ObjectField($1, $3)}
-| ID DOT ID EQUAL expression SEMICOLON {ObjectFieldAssignment(($1, $3), $5)}
-| ID EQUAL expression {VariableAssignment($1, $3)}
-| IF OPARENT guard = ID CPARENT thenExp = groupExpression ELSE  elseExp = groupExpression {If(guard, thenExp, elseExp)}
->>>>>>> Improve grammar in parser.mly
 | operationExpression {$1}
 
 | OPARENT NOT expression CPARENT {Negation($3)}
@@ -190,10 +178,6 @@ operationExpression:
 | exp1 = expression NOT_EQUAL exp2 = expression {Operation(exp1, NotEqual, exp2)}
 | exp1 = expression AND exp2 = expression {Operation(exp1, And, exp2)}
 | exp1 = expression OR exp2 = expression {Operation(exp1, Or, exp2)}
-<<<<<<< HEAD
-=======
-
->>>>>>> Improve grammar in parser.mly
 ;
 
 seqExpression:
@@ -210,8 +194,17 @@ argsList:
 ;
 
 typeD:
-| TINT {IntType}
-| TFLOAT {FloatType}
-| TBOOL {BoolType}
-| TVOID {VoidType}
+| TINT { IntType }
+| TFLOAT { FloatType }
+| TBOOL { BoolType }
+| TVOID { VoidType }
+| ID { ObjectType $1 }
 ;
+
+label:
+| H { H }
+| L { L }
+| M INT { M $2 }
+
+secureType:
+| OPARENT t = typeD COMMA l = label CPARENT { {typ= t; label= l } }

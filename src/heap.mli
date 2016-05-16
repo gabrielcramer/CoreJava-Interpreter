@@ -1,7 +1,9 @@
 open Core.Std
 (* TODO: look at and maybe use this instead -> https://ocaml.janestreet.com/ocaml-core/109.12.00/doc/core/Heap.html *)
 type t
+  [@@deriving show]
 and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t;}
+  [@@deriving show]
 
 val empty : t
 val nextLocation: unit -> Syntax.value

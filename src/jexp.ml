@@ -19,29 +19,35 @@ let parse_with_error lexbuf =
     fprintf stderr "%a: syntax error while parsing\n" print_position lexbuf;
     exit (-1)
 
-let interpret lexbuf =
+let interpret static_analysis lexbuf =
   match parse_with_error lexbuf with
   | Some program -> begin print_endline (Syntax.show_program program);
       try
-        Typechecker.typeCheckProgram program;
+        if static_analysis then
+          Securitytypechecker.secureTCProgram program;
         let _ = Interpreter.interpretProgram program in ()
       with
       | StaticError msg -> print_endline ("Static error: " ^ msg)
       | RuntimeError msg -> print_endline ("Runtime error:" ^ msg)
+
     end
   | None -> ()
 
-let loop filename () =
+let loop static_analysis filename () =
   let inx = In_channel.create filename in
   let lexbuf = Lexing.from_channel inx in
   lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-  interpret lexbuf;
+  interpret static_analysis lexbuf;
   In_channel.close inx
 
 
 
 let () =
   Command.basic ~summary:"jexp - Interpreter for Java-like expression oriented language"
-    Command.Spec.(empty +> anon ("filename" %: file))
+    Command.Spec.(
+      empty
+      +> flag "-s" no_arg ~doc:"static-analysis perform static analysis"
+      +> anon ("filename" %: file)
+    )
     loop
   |> Command.run

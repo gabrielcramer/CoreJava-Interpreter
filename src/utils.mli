@@ -1,6 +1,7 @@
-val getTypeOfVar_exn: Syntax.id -> Syntax.typeValue Environment.t -> Syntax.typ
+val getTypeOfVar_exn: Syntax.id -> Syntax.typeValue Environment.t -> Syntax.secureType
 val getTypeOfVal: Syntax.value -> Syntax.typ
-val getTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.typ option
+val getSecureTypeOfVal: Syntax.value -> Syntax.secureType
+val getTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.secureType option
 val getMethodDefinition: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.methodDeclaration option
 
 
@@ -24,10 +25,10 @@ val fieldsOnce_exn: Syntax.classDeclaration -> unit
 val goodInheritance: Syntax.classDeclaration -> Syntax.program -> unit
 
 val firstUnboundVariable: Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.id option
-val getFieldList: Syntax.typ -> Syntax.program-> (Syntax.id * Syntax.typ) list
-val getTypeList: Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.typ list
-val checkFieldsTypes: (Syntax.id * Syntax.typ) list -> Syntax.typ list -> Syntax.program -> Syntax.id option
-val createFieldEnv: (Syntax.id * Syntax.typ) list -> Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.typeValue Environment.t
+val getFieldList: Syntax.typ -> Syntax.program-> (Syntax.id * Syntax.secureType) list
+val getTypeList: Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.secureType list
+val checkFieldsTypes: (Syntax.id * Syntax.secureType) list -> Syntax.secureType list -> Syntax.program -> Syntax.id option
+val createFieldEnv: (Syntax.id * Syntax.secureType) list -> Syntax.id list -> Syntax.typeValue Environment.t -> Syntax.typeValue Environment.t
 val getParent: Syntax.typ -> Syntax.program -> Syntax.typ
 
 val substVariableName: Syntax.id -> Syntax.id -> Syntax.exp -> Syntax.exp
@@ -40,7 +41,7 @@ val isSecureSubtype: Syntax.secureType -> Syntax.secureType -> Syntax.program ->
 val lubLabel: Syntax.label -> Syntax.label -> Syntax.label
 val glbLabel: Syntax.label -> Syntax.label -> Syntax.label
 val getSecureTypeField: Syntax.typ -> Syntax.id -> Syntax.program -> Syntax.secureType option
-
+val getClassLabel: Syntax.id -> Syntax.program -> Syntax.label option
 
 val stringOfSecureType: Syntax.secureType -> string
 
@@ -49,6 +50,6 @@ val stringListOfIdTypList: (Syntax.id * Syntax.typ) list -> string list
 val stringOfValue: Syntax.value -> string
 val stringOfEnv: Syntax.typeValue Environment.t -> string
 val stringOfExp: Syntax.exp -> string
-val stringOfMethods: Syntax.methodDeclaration list -> string
+(* val stringOfMethods: Syntax.methodDeclaration list -> string *)
 
 val stringOfLabel: Syntax.label -> string

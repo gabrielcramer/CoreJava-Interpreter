@@ -1,6 +1,8 @@
 open Core.Std
 type t = (Syntax.value * heapEntry) list
+  [@@deriving show]
 and heapEntry = {id: Syntax.id; env: Syntax.typeValue Environment.t}
+  [@@deriving show]
 exception Not_bound
 
 let empty = []

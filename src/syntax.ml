@@ -2,7 +2,7 @@ type program = Program of classDeclaration list
   [@@deriving show]
 
 (** A class if formed of (name class, name parent class, list of fields, list of methods) *)
-and classDeclaration = Class of id * id * ((id * typ) list) * methodDeclaration list
+and classDeclaration = Class of id * label * id * ((id * secureType) list) * methodDeclaration list
   [@@deriving show]
 
 and typ = IntType
@@ -18,14 +18,14 @@ and secureType =
   { typ:typ;
     label: label
   }
-    [@@deriving show]
+  [@@deriving show]
 and label =   H
           | M of int
           | L
   [@@deriving show]
 
 (** A method has a (type method, name method, list of method parameters, the body of the method) *)
-and methodDeclaration = Method of typ * id * ((id * typ) list) * exp
+and methodDeclaration = Method of secureType * id * ((id * secureType) list) * label * exp
   [@@deriving show]
 
 and exp = Value of value
@@ -33,7 +33,7 @@ and exp = Value of value
         | ObjectField of id * id
         | VariableAssignment of id * exp
         | ObjectFieldAssignment of (id * id) * exp
-        | BlockExpression of ((id * typ) list) * exp
+        | BlockExpression of ((id * secureType) list) * exp
         | Sequence of exp * exp
         | If of id * exp * exp
         | Operation of exp * binaryOperator * exp
@@ -58,7 +58,7 @@ and value = NullV
   [@@deriving show]
 
 and typeValue = {
-  typ: typ;
+  sType: secureType;
   value: value
 }
   [@@deriving show]

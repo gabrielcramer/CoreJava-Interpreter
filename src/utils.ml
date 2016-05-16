@@ -3,6 +3,8 @@ open Core.Std
 open Exn2
 
 
+
+
 let stringOfLabel = function
   | H -> "H"
   | M _ -> "M"
@@ -18,7 +20,7 @@ let stringOfType = function
   | ObjectType(obj) -> obj
 
 let stringOfSecureType = function
-  | {typ;label} -> (stringOfType typ) ^ "label:" ^ stringOfLabel label
+  | {typ;label} -> (stringOfType typ) ^ ", " ^ stringOfLabel label
 
 let rec stringListOfIdTypList = function
   | []-> []
@@ -58,40 +60,75 @@ let rec stringOfExp = function
   | MethodCall(cn, mn, params) -> "MethodCall"
   | Ret(v, exp) -> "ret"
 
-let rec stringOfMethods = function
-  | [] -> "\n"
-  | hd :: tl -> match hd with
-    | Method(t, n, args, exp) -> (stringOfType t) ^ " " ^ n ^ " (" ^ (String.concat ~sep:", "  (stringListOfIdTypList args)) ^ ") \n" ^ (stringOfExp exp) ^ "\n/* endmethod */\n"
-
 let stringOfEnv env =
   let stringList = (Environment.map
-                      (fun id typeValue -> "(" ^ id ^ " {typ = " ^ (stringOfType typeValue.typ) ^
+                      (fun id typeValue -> "(" ^ id ^ " {typ = " ^ (stringOfSecureType typeValue.sType) ^
                                            "; value = " ^ (stringOfValue typeValue.value) ^ "})") env) in
   (String.concat ~sep:", " stringList)
+
+
 
 let rec getParent obj prog = match obj with
   | ObjectType(cn) -> (match prog with Program classList -> getParentAux cn classList)
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no base class.")
 and
   getParentAux cn = function
-  | Class(c, p, _, _) :: tl -> if c = cn then (ObjectType p) else getParentAux cn tl
+  | Class(c,_ ,p , _, _) :: tl -> if c = cn then (ObjectType p) else getParentAux cn tl
   | [] ->  raiseRuntimeError (cn ^ " class not declared inside program.")
+
+let rec isSubtype t1 t2 prog = match t1, t2 with
+  | NullType, ObjectType(_) -> true
+  | ObjectType _, ObjectType("Object") -> true
+  | ObjectType("Object"), _ -> false
+  | LocType, ObjectType _ -> true
+  | ObjectType(cn1), ObjectType(cn2) -> if cn1 = cn2 then true
+    else
+      let p = getParent t1 prog in
+      if t2 = p then true
+      else isSubtype p t2 prog
+  | a, b -> if a = b then true else false
+
+let isSubLabel l1 l2 = match l1, l2 with
+  | H, H -> true
+  | H, _ -> false
+  | M _, L -> false
+  | M _, _ -> true
+  | L, _ -> true
+
+let isSecureSubtype st1 st2 prog = match st1, st2 with
+  | {typ=t1;label=l1},{typ=t2;label=l2} -> (isSubLabel l1 l2) && (isSubtype t1 t2 prog)
+
+let lubLabel l1 l2 = if isSubLabel l1 l2 then l2 else l1
+
+let glbLabel l1 l2 = if isSubLabel l1 l2 then l1 else l2
+
+
+let getSecureTypeField objType fn prog = Some({typ=IntType;label=L}) (*TODO properly implement this function*)
+let labelOfClass objType prog = Some(L) (*TODO properly implement this function*)
+let getClassLabel cn = function Program classList ->
+  if cn = "Object" then Some L else
+    try
+      let Class(_, label, _, _, _) = List.find_exn classList
+          ~f:(function Class(n, _, _, _,_) -> n = cn) in
+      Some label
+    with
+    | Not_found -> None
+
 
 
 let rec getFieldList obj prog = match obj with
   | ObjectType "Object" -> []
-  | ObjectType(cn) ->  let p = (getParent obj prog) in (getFieldList p prog) @ (getFieldListAux1 cn prog)
+  | ObjectType(cn) ->  let p = (getParent obj prog) in (getFieldList p prog) @ (getFieldListAux cn prog)
   | primitiveType -> raiseRuntimeError ("Primitive type " ^ (stringOfType primitiveType) ^ "has no fields.")
 
-and getFieldListAux1 cn = function Program classList -> getFieldListAux2 cn classList
+and getFieldListAux cn = function Program classList ->
+  try
+    let Class(_, _, _, fields, _) = List.find_exn  ~f:(function Class(c,_, _, _, _) -> c = cn) classList in fields
+  with
+  | Not_found -> raiseRuntimeError (cn ^ " not defined in the program")
 
-and getFieldListAux2 (cn : Syntax.id) (classList : Syntax.classDeclaration list) = match classList with
-  | [Class(c, _, fields, _)] -> if c = cn then fields else []
-  | Class(c, _, fields, _) :: tl -> if c = cn then fields else getFieldListAux2 cn tl
-  | [] -> [] (* TODO:think about this case*)
-
-let getTypeOfVar_exn var (env : Syntax.typeValue Environment.t) : Syntax.typ =
-  try (Environment.lookup var env).typ with Environment.Not_bound -> Exn2.raiseRuntimeError var
+let getTypeOfVar_exn var (env : Syntax.typeValue Environment.t) : Syntax.secureType =
+  try (Environment.lookup var env).sType with Environment.Not_bound -> Exn2.raiseRuntimeError var
 
 let getTypeList idList env = List.map idList (fun id -> getTypeOfVar_exn id env)
 
@@ -102,6 +139,8 @@ let getTypeOfVal = function
   | VoidV -> VoidType
   | LocV _ -> LocType
   | NullV -> NullType
+
+let getSecureTypeOfVal v = {typ= (getTypeOfVal v); label= L}
 
 let getTypeField objType fn prog = match objType with
   | ObjectType(cn) -> begin
@@ -135,11 +174,10 @@ let isObjectType = function
   | ObjectType _ -> true
   | _ -> false
 
-let rec isDefinedInProgAux (id : Syntax.id) (classList : Syntax.classDeclaration list) : bool = match classList with
-  | Class(c, _, _, _) :: tl -> if c = id then true else isDefinedInProgAux id tl
-  | [] -> false
-
-let isDefinedInProg id = function Program classList -> if id = "Object" then true else isDefinedInProgAux id classList
+let isDefinedInProg cn = function Program classList -> if cn = "Object" then true
+  else match List.find classList ~f:(function Class(n, _, _, _, _) -> n = cn) with
+    | Some _ -> true
+    | None -> false
 
 let isTypeDeclared t prog = match t with
   |ObjectType cn -> isDefinedInProg cn prog
@@ -150,7 +188,7 @@ let getMethods obj prog = match prog with
       | ObjectType "Object" -> []
       | ObjectType cn -> begin
           try
-            let Class(n, pn, _, methods) = List.find_exn classList ~f:(function Class(c, _, _, _) -> cn = c) in
+            let Class(n ,_ ,pn ,_ ,methods ) = List.find_exn classList ~f:(function Class(c,_ ,_ ,_ ,_ ) -> cn = c) in
             methods
           with
             Not_found -> raiseRuntimeError ((stringOfType obj) ^ " is not defined inside program.")
@@ -163,7 +201,7 @@ let rec getMethodDefinition obj mn prog = match obj with
       else
         let methods = (getMethods obj prog) in
         try
-          let methodDecl = List.find_exn methods ~f:(function Method(_, n, _, _) -> n = mn) in
+          let methodDecl = List.find_exn methods ~f:(function Method(_,n ,_ ,_ ,_) -> n = mn) in
           Some(methodDecl)
         with
           Not_found -> getMethodDefinition (getParent obj prog) mn prog
@@ -194,26 +232,15 @@ let rec leastMaxType t1 t2 prog = match t1, t2 with
     findFirstIntersection h1 h2
   | primitive1, primitive2 -> if primitive1 = primitive2 then Some(t1) else None
 
-let rec isSubtype t1 t2 prog = match t1, t2 with
-  | NullType, ObjectType(_) -> true
-  | ObjectType _, ObjectType("Object") -> true
-  | ObjectType("Object"), _ -> false
-  | LocType, ObjectType _ -> true
-  | ObjectType(cn1), ObjectType(cn2) -> if cn1 = cn2 then true
-    else
-      let p = getParent t1 prog in
-      if t2 = p then true
-      else isSubtype p t2 prog
-  | a, b -> if a = b then true else false
 
 
 let rec checkFieldsTypes fields types prog = match fields, types with
-  | (f, tf) :: tlf, tv :: tlt -> if isSubtype tv tf prog then checkFieldsTypes tlf tlt prog else Some(f)
+  | (f, tf) :: tlf, tv :: tlt -> if isSecureSubtype tv tf prog then checkFieldsTypes tlf tlt prog else Some(f)
   | [], [] -> None
   | _ -> raiseRuntimeError ("Default case reached in Utils.checkFieldsTypes") (*TODO better treat this case*)
 
 
-let rec createFieldEnv (fields : (Syntax.id * Syntax.typ) list) idList (env : Syntax.typeValue Environment.t) = match fields, idList with
+let rec createFieldEnv (fields : (Syntax.id * Syntax.secureType) list) idList (env : Syntax.typeValue Environment.t) = match fields, idList with
   | (f, tf) :: tlf, id :: tl -> let v = (Environment.lookup id env) in
     Environment.extend f v (createFieldEnv tlf tl env)
   | [], [] -> Environment.empty
@@ -228,26 +255,26 @@ let eachElementOnce_exn l = List.iteri l ~f:(fun i x ->
     let xList = List.filter l ~f:(fun y -> x = y) in
     if List.length xList = 1 then () else raise (DuplicateElement i))
 
-let methodsOnce_exn class_decl = let Class(_, _, _, methods) = class_decl in
-  let methodsNames = List.map methods ~f:(function Method(_, n, _, _) -> n) in
+let methodsOnce_exn class_decl = let Class(_,_ ,_ ,_ , methods) = class_decl in
+  let methodsNames = List.map methods ~f:(function Method(_,n ,_ ,_ ,_ ) -> n) in
   try
     eachElementOnce_exn methodsNames
   with
     DuplicateElement index -> raise (DuplicateMethod (List.nth_exn methods index))
 
-let fieldsOnce_exn class_decl = let Class(_, _, fields, _) = class_decl in
+let fieldsOnce_exn class_decl = let Class(_ ,_ ,_ ,fields ,_ ) = class_decl in
   let fieldsNames = List.map fields ~f:(function (n, _) -> n) in
   try
     eachElementOnce_exn fieldsNames
   with
     DuplicateElement index -> raise (DuplicateField (List.nth_exn fields index))
 
-let methodName = function Method(_, n, _, _) -> n
+let methodName = function Method(_ ,n ,_ ,_ ,_ ) -> n
 
 let goodOverride m1 m2 prog = match m1, m2 with
-  | Method(t1, _, args1, e1), Method(t2, _, args2, e2) -> args1 = args2 && e1 = e2 && isSubtype t1 t2 prog
+  | Method(t1, _, args1,_ ,e1 ), Method(t2 ,_ ,args2 ,_ ,e2 ) -> args1 = args2 && e1 = e2 && isSecureSubtype t1 t2 prog
 
-let goodInheritance cl prog = let Class(cn,pn,_,methods) = cl in
+let goodInheritance cl prog = let Class(cn,_,pn,_,methods) = cl in
   let parentMethods = getMethods (ObjectType pn) prog in
   List.iter methods ~f:(fun m ->
       List.iter parentMethods ~f:(fun mp ->
@@ -301,22 +328,3 @@ let rec substVariableName newName name exp = match exp with
   | MethodCall (var, mn, params) -> let substVar = (if var = name then newName else var) in
     let substParams = List.map params ~f:(fun p -> if p = name then newName else p) in MethodCall(substVar,mn,substParams)
   | Ret (v, e) -> exp (* TODO: Think twice about this case. Do we need to substitute also in this type of exp?*)
-  | _ ->  raise(RuntimeError ("Default case reached in Utils.createFieldEnv")) (*TODO better treat this case*)
-
-  let isSubLabel l1 l2 = match l1, l2 with
-    | H, H -> true
-    | H, _ -> false
-    | M _, L -> false
-    | M _, _ -> true
-    | L, _ -> true
-
-  let isSecureSubtype st1 st2 prog = match st1, st2 with
-    | {typ=t1;label=l1},{typ=t2;label=l2} -> (isSubLabel l1 l2) && (isSubtype t1 t2 prog)
-
-  let lubLabel l1 l2 = if isSubLabel l1 l2 then l2 else l1
-
-  let glbLabel l1 l2 = if isSubLabel l1 l2 then l1 else l2
-
-
-  let getSecureTypeField objType fn prog = Some({typ=IntType;label=L}) (*TODO properly implement this function*)
-  let labelOfClass objType prog = Some(L) (*TODO properly implement this function*)

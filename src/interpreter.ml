@@ -60,11 +60,11 @@ and stepVariableAssignment (var : id) (e : exp) (state : state) : state = match 
   | Value(v) ->
     if Environment.isIn var state.env then
       let varT = Utils.getTypeOfVar_exn var state.env in
-      let valT = Utils.getTypeOfVal v in
-      if Utils.isSubtype valT varT state.prog then
-        let nEnv = Environment.update var {typ = varT; value = v} state.env in
+      let valT = Utils.getSecureTypeOfVal v in
+      if Utils.isSecureSubtype valT varT state.prog then
+        let nEnv = Environment.update var {sType = varT; value = v} state.env in
         {state with env = nEnv; e = Value(VoidV)}
-      else raiseRuntimeError ("Invalid types")
+      else raiseRuntimeError ("Type of " ^ var ^ "(" ^ (Utils.stringOfSecureType varT) ^ ") is incompatible with " ^ (Utils.stringOfSecureType valT))
     else raiseUnboundVar var
   | _ -> let ns = (step {state with e = e}) in {ns with e = VariableAssignment(var, ns.e)}
 
@@ -76,11 +76,11 @@ and stepObjectFieldAssignment (var : id) (field : id) (e : exp) (state : state) 
         let fldE = (Heap.getFieldEnv_exn loc state.heap) in
         if Environment.isIn field fldE then
           let fieldType = Utils.getTypeOfVar_exn field fldE in
-          let valType = Utils.getTypeOfVal v in
-          if Utils.isSubtype valType fieldType state.prog then
-            let nHeap = Heap.update loc field {typ = fieldType; value = v} state.heap  in
+          let valType = Utils.getSecureTypeOfVal v in
+          if Utils.isSecureSubtype valType fieldType state.prog then
+            let nHeap = Heap.update loc field {sType = fieldType; value = v} state.heap  in
             {state with heap = nHeap; e = Value(VoidV)}
-          else raiseRuntimeError ("Type of " ^ var ^ "." ^ field ^ "(" ^ (Utils.stringOfType fieldType) ^ ") is incompatible with " ^ (Utils.stringOfType valType))
+          else raiseRuntimeError ("Type of " ^ var ^ "." ^ field ^ "(" ^ (Utils.stringOfSecureType fieldType) ^ ") is incompatible with " ^ (Utils.stringOfSecureType valType))
         else raiseRuntimeError ("Field " ^ field ^ " not declared inside " ^ var)
       else raiseRuntimeError (var ^ " is not an object.")
     else raiseUnboundVar var
@@ -90,14 +90,14 @@ and stepSequence (e1 : exp) (e2 : exp) (state : state) : state = match e1 with
   | Value v -> { state with e = e2 }
   | _ -> let ns = (step {state with e = e1}) in {ns with e = Sequence(ns.e, e2)}
 
-and stepBlockExpression (l : ((id * typ) list)) (exp : exp) (state : state) : state = match l with
+and stepBlockExpression (l : ((id * secureType) list)) (exp : exp) (state : state) : state = match l with
   | [] -> {state with e = exp}
-  | [(id, typ)] -> {state with
-                    env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
-                    e = Ret(id, exp)}
-  | (id, typ) :: tl -> {state with
-                        env = (Environment.extend id {typ = typ; value = Utils.initValue typ} state.env);
-                        e = Ret(id, BlockExpression(tl, exp))}
+  | [(id, sType)] -> {state with
+                      env = (Environment.extend id {sType = sType; value = Utils.initValue sType.typ} state.env);
+                      e = Ret(id, exp)}
+  | (id, sType) :: tl -> {state with
+                          env = (Environment.extend id {sType = sType; value = Utils.initValue sType.typ} state.env);
+                          e = Ret(id, BlockExpression(tl, exp))}
 
 and stepRet (v : id) (exp : exp) (state : state) : state =
   if Utils.isValue exp then
@@ -105,11 +105,12 @@ and stepRet (v : id) (exp : exp) (state : state) : state =
   else
     let ns = (step {state with e = exp }) in {ns with e = Ret(v, ns.e)}
 
+(* TODO: check implicit flow *)
 and stepIf (var: id) (et : exp) (ee : exp) (state : state) : state = match evalVariable var state with
   | BoolV true -> {state with e = et}
   | BoolV false -> {state with e = ee}
   | _ -> let varType = Utils.getTypeOfVar_exn var state.env in
-    raiseRuntimeError ("Variable " ^ var ^ " has type " ^ (Utils.stringOfType varType) ^ " but a variable was expected of type " ^ (Utils.stringOfType BoolType) )
+    raiseRuntimeError ("Variable " ^ var ^ " has type " ^ (Utils.stringOfSecureType varType) ^ " but a variable was expected of type " ^ (Utils.stringOfType BoolType) )
 
 (* TODO: don't use multistep evaluation for Operation subexpressions in order to output better errors*)
 and stepOperation (e1 : exp) (e2 : exp) (op : binaryOperator) (state : state) : state = match op with
@@ -215,20 +216,22 @@ and stepInstanceOf  (var : id) (cn : id) (state : state) : state =
     {state with e = (Value (BoolV isInstance))}
   else raiseRuntimeError ("Unbound class " ^ cn)
 
+(* TODO:  Prevent the call of a low method inside a high contex*)
 and stepMethodCall (var : id) (mn : id) (params : id list) (state : state) : state = let loc = evalObjectVariable var state in
   let varType = Heap.getObjectType_exn loc state.heap in
-  let methodDecl = Utils.getMethodDefinition varType mn state.prog in match methodDecl with
-  | Some (Method(rt,_,idTypLst,e)) ->  begin
+  let methodDecl = Utils.getMethodDefinition varType mn state.prog in
+  match methodDecl with
+  | Some Method(rt, _, idTypLst, label, e) -> begin
       (* TODO only use core std *)
       let valList = List.map (fun x -> evalVariable x state) params in
       let paramIdTypList = Core.Std.List.map params ~f:(fun id -> let typ = Utils.getTypeOfVar_exn id state.env in (id, typ)) in
       try
-        Core.Std.List.iter2_exn paramIdTypList idTypLst ~f:(fun (pn,ptype) (_,typ) ->
-            if Utils.isSubtype ptype typ state.prog then () else raise (IncompatibleTypes ((Variable pn), ptype, typ)));
+        Core.Std.List.iter2_exn paramIdTypList idTypLst ~f:(fun (pn, ptype) (_,typ) ->
+            if Utils.isSecureSubtype ptype typ state.prog then () else raise (IncompatibleTypes ((Variable pn), ptype.typ, typ.typ)));
         (* generate fresh variables *)
-        let freshVars =  Core.Std.List.init (List.length params) ~f:(fun i -> "_x" ^ (string_of_int i))  in
-        let envExtension = ("_this", {typ = varType; value = loc}) ::
-                           Core.Std.List.map3_exn freshVars paramIdTypList valList ~f: (fun x (_, t) v -> (x, {typ = t; value = v})) in
+        let freshVars = Core.Std.List.init (List.length params) ~f:(fun i -> "_x" ^ (string_of_int i))  in
+        let envExtension = ("_this", {sType = {typ = varType; label=L}; value = loc}) ::
+                           Core.Std.List.map3_exn freshVars paramIdTypList valList ~f: (fun x (_, t) v -> (x, {sType = t; value = v})) in
         let newEnv = Environment.union envExtension state.env in
         let substList = ("_this", "this") :: Core.Std.List.map2_exn freshVars params ~f:(fun x y -> (x, y)) in
         let substExp =  Core.Std.List.fold substList ~init:e ~f:(fun e (newName, name) -> Utils.substVariableName newName name e ) in
@@ -274,31 +277,34 @@ and applyOp (e1 : value) (e2 : value) (op : binaryOperator) : value = match op w
 
 
 let rec multistep (state : state) : value =
+  (* debug print every 10 steps *)
   if !stepCounter mod 10 = 0 then begin
-    print_endline ((Utils.stringOfEnv state.env));
-    print_endline ((Syntax.show_exp state.e))
-  end
-  else ();
+    print_endline (Core.Std.Printf.sprintf "-------------------\n\n>ENV: %s\n>HEAP: %s\n>EXP: %s\n\n-----------------"
+                     (Environment.show Syntax.pp_typeValue state.env) (Heap.show state.heap) (Syntax.show_exp state.e))
+
+  end else ();
   stepCounter := !stepCounter + 1;
   match state.e with
   | Value(v) -> print_endline ((Utils.stringOfEnv state.env));print_endline ("Exp:" ^ (Syntax.show_exp state.e));v
   | exp -> multistep (step state)
 
-let interpretExp (e: exp) (prog: program) : value =
-  let initialState = {heap= Heap.empty; env = Environment.empty; e = e; prog = prog} in
+let interpretExp (e : exp) (prog : program) : value =
+  let initialState = {heap = Heap.empty; env = Environment.empty; e = e; prog = prog} in
   multistep initialState
 
-let interpretProgram (prog: program) : value = let Program classList = prog in
+let interpretProgram (prog : program) : value = let Program classList = prog in
   try
-    let Class (n, _, fields, methods) = Core.Std.List.last_exn classList in
-    if n = "Main" then
+    let Class (cname, _, _, fields, methods) = Core.Std.List.last_exn classList in
+
+    (* Start execution from the class Main which does not have any fields and only one method called `main` *)
+    if cname = "Main" then
       if List.length fields = 0 then begin
         try
           if List.length methods = 1 then
-            let Method(rt,n,args,e) = Core.Std.List.last_exn methods in
-            if rt = VoidType && n = "main" then interpretExp e prog
-            else raise (Invalid_argument "TODO message")
-          else raise (Invalid_argument "TODO message")
+            let Method(rt, mname, args, ml, e) = Core.Std.List.last_exn methods in
+            if rt = {typ= VoidType;label= L} && mname = "main" then interpretExp e prog
+            else raise (Invalid_argument "The Main class does not have a `void main` method")
+          else raise (Invalid_argument "The Main class doesn't have exactly ONE method")
         (* else raiseRuntimeError "The Main class should have only one method called main." *)
         with
           Invalid_argument el -> raiseRuntimeError ("There is no method main with return type " ^ (Utils.stringOfType VoidType))
@@ -308,60 +314,61 @@ let interpretProgram (prog: program) : value = let Program classList = prog in
   with
     Invalid_argument el -> raiseRuntimeError ("The program has no class declarations. " ^ el)
 
-let initialHeap = (Heap.union [
+(* let initialHeap = (Heap.union [
     ((LocV 1), {id = "a"; env = (Environment.union
                                    [("f1",{typ = IntType; value = IntV 3})] Environment.empty)
                } );
     ((LocV 2), {id = "b"; env = (Environment.union
                                    [("f1",{typ = IntType; value = IntV 4})] Environment.empty)
                } );
-  ] Heap.empty)
-let interpret (e : exp) (program : program) : value =
-  let initialEnv = (Environment.union [
+   ] Heap.empty)
+   let interpret (e : exp) (program : program) : value =
+   let initialEnv = (Environment.union [
       ("a", {typ = IntType; value = IntV 3});
       ("i", {typ = IntType; value = IntV 0});
       ("cond", {typ = BoolType; value = BoolV true});
       ("mya", {typ = ObjectType("a"); value = LocV 1});
       ("myb", {typ = ObjectType("b"); value = LocV 2})] Environment.empty) in
 
-  let initialState = {heap = initialHeap; env = initialEnv; e = e; prog = program} in
-  multistep initialState
+   let initialState = {heap = initialHeap; env = initialEnv; e = e; prog = program} in
+   multistep initialState
 
-let prg = Program( [Class ("a", "Object", [("f1",IntType)], [Method(IntType,"add",[("p1",IntType)],Value(IntV 3))]);
+   let prg = Program( [Class ("a", "Object", [("f1",IntType)], [Method(IntType,"add",[("p1",IntType)],Value(IntV 3))]);
                     Class ("b", "a", [("f2",IntType)], [Method(IntType,"add",[("p1",IntType)],Value(IntV 3))]);Class ("c", "b", [], []);Class ("d", "Object", [], [])] )
-(* Tests for Typechecker *)
-let methods = [Method(IntType,"m1",[],Value(IntV 3));Method(IntType,"m1",[],Value(IntV 3))]
-let classDecl = Class ("a", "Object", [("f1",IntType)], methods)
-let te = (Environment.union [("a",IntType);("cond",BoolType);("mya",ObjectType("a"));("myc",ObjectType("c"));("myd",ObjectType("d"))] Environment.empty)
-let _ = assert (true = Utils.isSubtype VoidType VoidType prg)
-let _ = assert (true = Utils.isSubtype (ObjectType "b") (ObjectType "Object") prg)
-let _ = assert (true = Utils.isSubtype (ObjectType "c") (ObjectType "Object") prg)
-let _ = assert (true = Utils.isSubtype (ObjectType "c") (ObjectType "a") prg)
-let _ = assert (false = Utils.isSubtype (ObjectType "b") (ObjectType "d") prg)
-let _ = assert (false = Utils.isSubtype (ObjectType "d") (ObjectType "b") prg)
-let _ = assert ((ObjectType "Object") = Utils.getParent (ObjectType "a") prg)
-let _ = assert (Some (ObjectType "Object") = Utils.leastMaxType (ObjectType "c") (ObjectType "d") prg )
-let _ = assert (Some (ObjectType "a") = Utils.leastMaxType (ObjectType "c") (ObjectType "a") prg )
+   (* Tests for Typechecker *)
+   let methods = [Method(IntType,"m1",[],Value(IntV 3));Method(IntType,"m1",[],Value(IntV 3))]
+   let classDecl = Class ("a", "Object", [("f1",IntType)], methods)
+   let te = (Environment.union [("a",IntType);("cond",BoolType);("mya",ObjectType("a"));("myc",ObjectType("c"));("myd",ObjectType("d"))] Environment.empty)
+   let _ = assert (true = Utils.isSubtype VoidType VoidType prg)
+   let _ = assert (true = Utils.isSubtype (ObjectType "b") (ObjectType "Object") prg)
+   let _ = assert (true = Utils.isSubtype (ObjectType "c") (ObjectType "Object") prg)
+   let _ = assert (true = Utils.isSubtype (ObjectType "c") (ObjectType "a") prg)
+   let _ = assert (false = Utils.isSubtype (ObjectType "b") (ObjectType "d") prg)
+   let _ = assert (false = Utils.isSubtype (ObjectType "d") (ObjectType "b") prg)
+   let _ = assert ((ObjectType "Object") = Utils.getParent (ObjectType "a") prg)
+   let _ = assert (Some (ObjectType "Object") = Utils.leastMaxType (ObjectType "c") (ObjectType "d") prg )
+   let _ = assert (Some (ObjectType "a") = Utils.leastMaxType (ObjectType "c") (ObjectType "a") prg )
 
-let _ = assert (IntType = Typechecker.typeCheckExp (Value(IntV 3)) te prg )
-let _ = assert (IntType = Typechecker.typeCheckExp (ObjectField("mya", "f1")) te prg)
-let _ = assert (VoidType = Typechecker.typeCheckExp (VariableAssignment ("a", Value(IntV 3)) ) te prg)
-let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (Variable "mya") te prg)
-let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (If ("cond", (Variable "myc"), (Variable "myd")) ) te prg)
+   let _ = assert (IntType = Typechecker.typeCheckExp (Value(IntV 3)) te prg )
+   let _ = assert (IntType = Typechecker.typeCheckExp (ObjectField("mya", "f1")) te prg)
+   let _ = assert (VoidType = Typechecker.typeCheckExp (VariableAssignment ("a", Value(IntV 3)) ) te prg)
+   let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (Variable "mya") te prg)
+   let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (If ("cond", (Variable "myc"), (Variable "myd")) ) te prg)
 
-let _ = assert (IntType = Typechecker.typeCheckExp (Operation ((Value(IntV 3)),IPlus,(Value(IntV 3)))) te prg)
-let _ = assert (BoolType = Typechecker.typeCheckExp (Operation ((Value(IntV 3)),EqEqual,(Value(IntV 3)))) te prg)
-let _ = assert (true = Utils.isIntOperator IPlus)
-let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (Cast("a","myc")) te prg)
-let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (Cast("Object","myc")) te prg)
-let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (New("a",["a"])) te prg)
-let _ = assert (ObjectType "b" = Typechecker.typeCheckExp (New("b",["a";"a"])) te prg)
-let _ = assert (VoidType = Typechecker.typeCheckExp (While ("cond",(Value(IntV 3))) ) te prg)
-let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("mya","add",["a"])) te prg )
-let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("myc","add",["a"])) te prg )
-(* let _ = Utils.methodsOnce_exn classDecl *)
+   let _ = assert (IntType = Typechecker.typeCheckExp (Operation ((Value(IntV 3)),IPlus,(Value(IntV 3)))) te prg)
+   let _ = assert (BoolType = Typechecker.typeCheckExp (Operation ((Value(IntV 3)),EqEqual,(Value(IntV 3)))) te prg)
+   let _ = assert (true = Utils.isIntOperator IPlus)
+   let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (Cast("a","myc")) te prg)
+   let _ = assert (ObjectType "Object" = Typechecker.typeCheckExp (Cast("Object","myc")) te prg)
+   let _ = assert (ObjectType "a" = Typechecker.typeCheckExp (New("a",["a"])) te prg)
+   let _ = assert (ObjectType "b" = Typechecker.typeCheckExp (New("b",["a";"a"])) te prg)
+   let _ = assert (VoidType = Typechecker.typeCheckExp (While ("cond",(Value(IntV 3))) ) te prg)
+   let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("mya","add",["a"])) te prg )
+   let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("myc","add",["a"])) te prg ) *)
 
-
+(* let _ = Typechecker.goodInheritance_exn (Class ("b", "a", [("f2",IntType)], [Method(IntType,"add",[("p1",IntType)],Value(IntV 3));Method(IntType,"minus",[("p1",IntType)],Value(IntV 3))])) prg *)
+(* let _ = print_endline (Syntax.show_program prg) *)
+(* let _ = Typechecker.typeCheckProgram prg *)
 (* Tests for interpreter*)
 (* let _ = assert (IntV 21 = interpret (Sequence(Value(IntV 22),Value(IntV 21) )) prg )
    let _ = assert (IntV 22 = interpret (Sequence(VariableAssignment("a",Value(IntV 22)),Variable("a") )) prg )
@@ -379,7 +386,6 @@ let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("myc","add",["a"]
    let _ = assert (IntV 10 = interpret(Operation((Value (IntV 5)),IPlus,(Value (IntV 5))   )) prg )
    let _ = assert (BoolV true = interpret(Operation((Value (BoolV true)),Or,(Value (BoolV false))   )) prg )
    let _ = assert (BoolV true = interpret(Operation((Value (IntV 5)),Less,(Value (IntV 6))   )) prg )
-
    let _ = assert (IntV 101 = interpret (
     Syntax.Sequence (
       Syntax.While ("cond",
@@ -396,5 +402,3 @@ let _ = assert (IntType = Typechecker.typeCheckExp (MethodCall("myc","add",["a"]
    let _ = assert ((LocV 2) = interpret (Syntax.Cast ("a","myb")) prg)
    let _ = assert (BoolV true = interpret (Syntax.InstanceOf ("myb","a")) prg)
    let _ = assert (IntV 3 = interpret (Syntax.MethodCall("mya","add",["a"])) prg) *)
-(* let _ = assert (BoolV true = interpret(Operation((Value (BoolV true)),Less, (Value (BoolV true))   )) prg ) *)
-(* let _ = assert (VoidType ) *)

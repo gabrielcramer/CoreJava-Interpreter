@@ -1,11 +1,10 @@
 open Core.Std
 
-
 exception StaticError of string
 exception RuntimeError of string
 exception BadFoundedClassesError of string
 exception DuplicateElement of int
-exception DuplicateField of (Syntax.id * Syntax.typ)
+exception DuplicateField of (Syntax.id * Syntax.secureType)
 exception DuplicateMethod of Syntax.methodDeclaration
 exception BadMethodOverriding of Syntax.methodDeclaration
 exception BadTypedMethod of Syntax.methodDeclaration

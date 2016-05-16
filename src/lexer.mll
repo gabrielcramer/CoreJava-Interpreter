@@ -82,6 +82,9 @@ rule read = parse
      | "if"   	    { IF }
      | "else" 	    { ELSE }
      | "instanceof" { INSTANCEOF }
+     | "H"      { H }
+     | "L"      { L }
+     | "H"      { M }
      | id 	    { ID(Lexing.lexeme lexbuf) }
 
 
